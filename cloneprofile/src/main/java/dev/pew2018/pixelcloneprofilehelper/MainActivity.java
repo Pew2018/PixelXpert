@@ -136,7 +136,7 @@ public final class MainActivity extends AppCompatActivity {
         third = switchRow(cloneCard, "允许克隆第三方应用");
         addSectionCaption(cloneCard, "配置状态");
         config = bodyText(cloneCard, false);
-        addActionRow(cloneCard, button -> raisedButton(button, "打开系统克隆应用", v -> openClonePage()));
+        addActionRow(cloneCard, button -> raisedButton(button, "打开系统克隆设置", v -> openClonePage()));
 
         LinearLayout logsCard = card(page, "运行日志");
         logText = bodyText(logsCard, false);
