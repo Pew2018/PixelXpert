@@ -7,6 +7,7 @@
     <dimen name="pcph_page_bottom">24dp</dimen>
     <dimen name="pcph_card_spacing">16dp</dimen>
     <dimen name="pcph_card_padding">16dp</dimen>
+    <dimen name="pcph_card_padding_vertical">12dp</dimen>
     <dimen name="pcph_card_radius">4dp</dimen>
     <dimen name="pcph_card_elevation">2dp</dimen>
     <dimen name="pcph_section_spacing">8dp</dimen>
@@ -19,6 +20,6 @@
     <dimen name="pcph_button_min_width">88dp</dimen>
     <dimen name="pcph_button_radius">2dp</dimen>
     <dimen name="pcph_button_elevation">2dp</dimen>
-    <dimen name="pcph_button_horizontal_padding">4dp</dimen>
+    <dimen name="pcph_button_horizontal_padding">8dp</dimen>
     <dimen name="pcph_log_line_spacing">2dp</dimen>
 </resources>
