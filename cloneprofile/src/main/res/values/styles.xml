@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<style name="Theme.CloneHelper" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+		<item name="colorPrimary">@color/pcph_primary</item>
+		<item name="colorPrimaryVariant">@color/pcph_primary</item>
+		<item name="colorOnPrimary">@color/pcph_on_primary</item>
+		<item name="colorSecondary">@color/pcph_primary</item>
+		<item name="android:colorAccent">@color/pcph_primary</item>
+	</style>
+</resources>
