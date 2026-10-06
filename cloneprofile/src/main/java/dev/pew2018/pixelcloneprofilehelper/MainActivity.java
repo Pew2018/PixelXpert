@@ -439,7 +439,7 @@ public final class MainActivity extends AppCompatActivity {
     private void refresh() {
         if (framework == null) return;
 
-        installed.setText("已安装 · v0.1");
+        installed.setText("已安装 · v" + BuildConfig.VERSION_NAME);
         framework.setText(HelperApplication.service == null ? "等待连接" : "已连接");
         scope.setText(HelperApplication.service == null
                 ? "尚未确认"
@@ -672,7 +672,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private String diagnostics() {
-        return "Pixel Clone Profile Helper v0.1\n"
+        return "Pixel Clone Profile Helper v" + BuildConfig.VERSION_NAME + "\n"
                 + device.getText() + "\n构建："
                 + deviceBuild.getText() + "\n" + deviceDetails.getText()
                 + "\n运行框架：" + HelperApplication.framework
