@@ -2,7 +2,7 @@ plugins { alias(libs.plugins.android.application) }
 
 android {
 	namespace = "dev.pew2018.pixelcloneprofilehelper"
-	compileSdk = 36
+	compileSdk = 37
 	defaultConfig {
 		applicationId = "dev.pew2018.pixelcloneprofilehelper"
 		minSdk = 26
