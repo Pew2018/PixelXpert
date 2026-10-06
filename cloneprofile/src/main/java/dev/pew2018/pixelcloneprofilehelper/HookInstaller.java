@@ -21,28 +21,28 @@ final class HookInstaller {
                 if(cfg[0]){HookReporter.report("CONFIG_READ","entry=on");return 0;}
                 HookReporter.report("CONFIG_READ","entry=off");return chain.proceed();});
             r.report("HOOK_MATCHED","ClonedAppsPreferenceController.getAvailabilityStatus()");matched++;
-        }catch(ReflectiveOperationException|LinkageError|RuntimeException e){r.report("HOOK_FAILED","entry target: "+e.getClass().getSimpleName());m.log(Log.WARN,"PCPH","Entry hook skipped: "+e.getClass().getSimpleName());}
+        }catch(ReflectiveOperationException|LinkageError|RuntimeException e){r.report("HOOK_FAILED","entry target: "+summary(e));m.log(Log.WARN,"PCPH","Entry hook skipped: "+e.getClass().getSimpleName());}
         try{
             Class<?> c=Class.forName(B,false,loader);Field f=c.getDeclaredField("mAllowedApps");f.setAccessible(true);
             Constructor<?>[] ctors=c.getDeclaredConstructors();if(ctors.length==0)throw new NoSuchMethodException("constructors missing");
             for(Constructor<?> ctor:ctors){ctor.setAccessible(true);m.hook(ctor).intercept(chain->{Object result=chain.proceed();
                 boolean[] cfg=CloneProfileHelperModule.config(m);Object instance=chain.getThisObject();
-                if(cfg[1]&&instance!=null){try{Object raw=f.get(instance);if(!(raw instanceof List<?>)){r.report("HOOK_PARTIAL","mAllowedApps type mismatch");return result;}
+                if(instance!=null){try{Object raw=f.get(instance);if(!(raw instanceof List<?>)){r.report("HOOK_PARTIAL","mAllowedApps type mismatch");return result;}
                     List<String> white=new ArrayList<>();for(Object x:(List<?>)raw)if(x instanceof String)white.add((String)x);
                     Application app=currentApp();if(app==null)throw new IllegalStateException("Settings Application unavailable");
                     List<CandidatePolicy.Installed> all=new ArrayList<>();
                     for(PackageInfo p:app.getPackageManager().getInstalledPackages(0))if(p.packageName!=null&&p.applicationInfo!=null)
                         all.add(new CandidatePolicy.Installed(p.packageName,p.applicationInfo.flags));
                     Set<String> cloned=clonePackages(loader,app);
-                    f.set(instance,CandidatePolicy.merge(white,all,cloned,true));
+                    f.set(instance,CandidatePolicy.merge(white,all,cloned,cfg[1]));
                     HookReporter.report("CANDIDATE_LIST_UPDATED","system whitelist retained; third-party candidates merged");
                 }catch(ReflectiveOperationException|RuntimeException e){r.report("HOOK_PARTIAL","candidate list skipped: "+e.getClass().getSimpleName());m.log(Log.WARN,"PCPH","Candidate hook skipped: "+e.getClass().getSimpleName());}}
-                else if(!cfg[1])r.report("CONFIG_READ","third_party=off; original candidates retained");
                 return result;});}
             r.report("HOOK_MATCHED","AppStateClonedAppsBridge constructors + mAllowedApps");matched++;
         }catch(ReflectiveOperationException|LinkageError|RuntimeException e){r.report("HOOK_FAILED","candidate target: "+e.getClass().getSimpleName());m.log(Log.WARN,"PCPH","Candidate hook skipped: "+e.getClass().getSimpleName());}
         r.report("HOOK_INSTALL_RESULT","matched targets="+matched+"/2");
     }
+    private static String summary(Throwable e){StackTraceElement[] s=e.getStackTrace();return e.getClass().getSimpleName()+(s.length==0?"":" @ "+s[0].getClassName()+"."+s[0].getMethodName()+":"+s[0].getLineNumber());}
     private static Application currentApp(){try{Class<?> c=Class.forName("android.app.ActivityThread");return (Application)c.getDeclaredMethod("currentApplication").invoke(null);}
         catch(ReflectiveOperationException|RuntimeException e){return null;}}
     private static Set<String> clonePackages(ClassLoader loader,Application app){
