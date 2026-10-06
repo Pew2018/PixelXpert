@@ -9,7 +9,7 @@ public final class CloneProfileHelperModule extends XposedModule {
     @Override public void onPackageLoaded(XposedModuleInterface.PackageLoadedParam p){
         if(!"com.android.settings".equals(p.getPackageName()))return;
         HookReporter reporter=new HookReporter(this); reporter.report("SETTINGS_PROCESS_LOADED","SDK "+android.os.Build.VERSION.SDK_INT);
-        HookInstaller.install(this,p.getClassLoader(),reporter);
+        HookInstaller.install(this,p.getDefaultClassLoader(),reporter);
     }
     static boolean[] config(CloneProfileHelperModule m){
         try{SharedPreferences p=m.getRemotePreferences(HelperApplication.PREFS);
