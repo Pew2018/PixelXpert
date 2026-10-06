@@ -34,7 +34,9 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public final class MainActivity extends AppCompatActivity {
     private static volatile MainActivity visible;
@@ -126,35 +128,35 @@ public final class MainActivity extends AppCompatActivity {
 
         LinearLayout statusCard = card(page, "运行状态");
         installed = infoRow(statusCard, "模块 APK");
-        framework = infoRow(statusCard, "Vector / LSPosed");
-        scope = infoRow(statusCard, "Settings 作用域");
-        hook = infoRow(statusCard, "Settings Hook");
+        framework = infoRow(statusCard, "运行框架");
+        scope = infoRow(statusCard, "作用范围");
+        hook = infoRow(statusCard, "系统设置");
         addActionRow(statusCard, button -> flatButton(button, "刷新状态", v -> refresh()));
 
         LinearLayout cloneCard = card(page, "克隆功能");
-        entry = switchRow(cloneCard, "开放系统克隆应用入口");
+        entry = switchRow(cloneCard, "启用系统克隆入口");
         third = switchRow(cloneCard, "允许克隆第三方应用");
         addSectionCaption(cloneCard, "配置状态");
         config = bodyText(cloneCard, false);
         addActionRow(cloneCard, button -> raisedButton(button, "打开系统克隆应用", v -> openClonePage()));
 
         LinearLayout logsCard = card(page, "运行日志");
-        logText = bodyText(logsCard, true);
-        logText.setTextIsSelectable(true);
+        logText = bodyText(logsCard, false);
         LinearLayout logActions = new LinearLayout(this);
         logActions.setOrientation(LinearLayout.HORIZONTAL);
         logActions.setGravity(Gravity.CENTER_VERTICAL);
-        addFlatButtonWeighted(logActions, "展开更多", v -> {
+        flatButton(logActions, "展开更多", v -> {
             expanded = !expanded;
             refresh();
         });
         expandLogsButton = (MaterialButton) logActions.getChildAt(0);
-        addFlatButtonWeighted(logActions, "复制 / 导出", v -> exportLogs());
-        addFlatButtonWeighted(logActions, "清除", v -> clearLogs());
+        flatButton(logActions, "导出诊断", v -> exportLogs());
+        flatButton(logActions, "清除", v -> clearLogs());
         logsCard.addView(logActions, matchWrap());
 
         LinearLayout diagnosticsCard = card(page, "设备与诊断");
         device = bodyText(diagnosticsCard, false);
+        device.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
         deviceBuild = infoRow(diagnosticsCard, "构建");
         deviceReport = infoRow(diagnosticsCard, "Settings 回报");
         deviceDetails = bodyText(diagnosticsCard, true);
@@ -163,13 +165,13 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout diagnosticActions = new LinearLayout(this);
         diagnosticActions.setOrientation(LinearLayout.HORIZONTAL);
         diagnosticActions.setGravity(Gravity.CENTER_VERTICAL);
-        addFlatButtonWeighted(diagnosticActions, "查看详细信息", v -> {
+        flatButton(diagnosticActions, "查看详细信息", v -> {
             detailsExpanded = !detailsExpanded;
             deviceDetails.setVisibility(detailsExpanded ? View.VISIBLE : View.GONE);
-            detailsButton.setText(detailsExpanded ? "收起详细信息" : "查看详细信息");
+            detailsButton.setText(detailsExpanded ? "收起" : "查看详细信息");
         });
         detailsButton = (MaterialButton) diagnosticActions.getChildAt(0);
-        addFlatButtonWeighted(diagnosticActions, "复制诊断信息", v -> copyDiagnostics());
+        flatButton(diagnosticActions, "复制诊断信息", v -> copyDiagnostics());
         diagnosticsCard.addView(diagnosticActions, matchWrap());
 
         setContentView(root);
@@ -243,9 +245,9 @@ public final class MainActivity extends AppCompatActivity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(
                 dimension(R.dimen.pcph_card_padding),
+                dimension(R.dimen.pcph_card_padding_vertical),
                 dimension(R.dimen.pcph_card_padding),
-                dimension(R.dimen.pcph_card_padding),
-                dimension(R.dimen.pcph_card_padding));
+                dimension(R.dimen.pcph_card_padding_vertical));
         card.addView(box, new MaterialCardView.LayoutParams(
                 MaterialCardView.LayoutParams.MATCH_PARENT, MaterialCardView.LayoutParams.WRAP_CONTENT));
 
@@ -393,10 +395,16 @@ public final class MainActivity extends AppCompatActivity {
         button.setMinHeight(dimension(R.dimen.pcph_touch_target));
         button.setMinimumHeight(dimension(R.dimen.pcph_touch_target));
         button.setMinWidth(0);
+        button.setPadding(dimension(R.dimen.pcph_button_horizontal_padding), 0,
+                dimension(R.dimen.pcph_button_horizontal_padding), 0);
         button.setElevation(0f);
         button.setStateListAnimator(null);
         button.setOnClickListener(listener);
-        parent.addView(button, wrapWrap());
+        LinearLayout.LayoutParams buttonParams = wrapWrap();
+        if (parent.getChildCount() > 0) {
+            buttonParams.leftMargin = dimension(R.dimen.pcph_section_spacing);
+        }
+        parent.addView(button, buttonParams);
     }
 
     private void raisedButton(LinearLayout parent, String label, View.OnClickListener listener) {
@@ -445,68 +453,182 @@ public final class MainActivity extends AppCompatActivity {
         if (framework == null) return;
 
         installed.setText("已安装 · v0.1");
-        framework.setText(HelperApplication.framework);
+        framework.setText(HelperApplication.service == null ? "等待连接" : "已连接");
         scope.setText(HelperApplication.service == null
                 ? "尚未确认"
-                : HelperApplication.scoped
-                    ? "已包含 com.android.settings"
-                    : "未包含 com.android.settings");
+                : HelperApplication.scoped ? "已启用" : "未启用");
 
         List<String> rows = logs();
-        String hookState = "尚未收到 Settings 进程回报";
-        for (String row : rows) {
-            if (row.contains("SETTINGS_PROCESS_LOADED")) {
-                hookState = "Settings 进程已加载本模块，等待 Hook 匹配结果";
-            }
-            if (row.contains("HOOK_INSTALL_RESULT")) {
-                hookState = "Hook 匹配检查完成：" + row.substring(row.lastIndexOf(" | ") + 3);
-            }
-            if (row.contains("HOOK_FAILED") || row.contains("HOOK_PARTIAL")) {
-                hookState = "Hook 发生匹配或运行问题；查看下方日志";
-            }
-        }
-        hook.setText(hookState);
+        String hookDiagnostic = hookDiagnosticStatus(rows);
+        hook.setText(hookSummary(rows));
 
-        config.setText(HelperApplication.service == null
-                ? "本机已保存，等待 Settings 确认"
-                : HelperApplication.sync()
-                    ? "已送达 Settings；需 Hook 读取后生效"
-                    : "本机已保存，配置暂未送达");
+        boolean delivered = HelperApplication.service != null && HelperApplication.sync();
+        config.setText(delivered
+                ? "配置已保存，等待系统设置生效"
+                : "配置已保存，等待系统连接");
 
         if (entry != null) {
             entry.setChecked(AppConfig.prefs().getBoolean(HelperApplication.ENTRY, true));
             third.setChecked(AppConfig.prefs().getBoolean(HelperApplication.THIRD, true));
         }
 
-        StringBuilder output = new StringBuilder();
-        int count = expanded ? rows.size() : Math.min(5, rows.size());
-        for (int i = Math.max(0, rows.size() - count); i < rows.size(); i++) {
-            output.append(rows.get(i)).append('\n');
+        if (expanded) {
+            logText.setText(formatRawLogs(rows));
+            logText.setTextAppearance(R.style.TextAppearance_CloneHelper_Diagnostic);
+            logText.setTextIsSelectable(true);
+        } else {
+            logText.setText(recentLogSummaries(rows));
+            logText.setTextAppearance(R.style.TextAppearance_CloneHelper_Secondary);
+            logText.setTextIsSelectable(false);
         }
-        logText.setText(rows.isEmpty() ? "暂无诊断记录" : output.toString().trim());
         expandLogsButton.setText(expanded ? "收起" : "展开更多");
+        expandLogsButton.setEnabled(!rows.isEmpty());
 
         String lastReport = rows.isEmpty()
                 ? "尚无回报"
                 : rows.get(rows.size() - 1).split(" \\| ", 2)[0];
         device.setText("Android " + Build.VERSION.RELEASE + " · SDK " + Build.VERSION.SDK_INT
-                + "\n" + Build.MANUFACTURER + " " + Build.MODEL);
+                + "\\n" + Build.MANUFACTURER + " " + Build.MODEL);
         deviceBuild.setText(Build.DISPLAY);
-        deviceReport.setText(lastReport);
-        deviceDetails.setText("Build fingerprint\n" + Build.FINGERPRINT
-                + "\n\n完整 Build ID\n" + Build.ID
-                + "\n\n最近 Settings 回报\n" + lastReport
-                + "\n\nHook 状态\n" + hookState);
+        deviceReport.setText(rows.isEmpty() ? "尚无回报" : shortTime(lastReport));
+        deviceDetails.setText("Build fingerprint\\n" + Build.FINGERPRINT
+                + "\\n\\nBuild ID\\n" + Build.ID
+                + "\\n\\n最近 Settings 回报\\n" + lastReport
+                + "\\n\\n运行框架\\n" + HelperApplication.framework
+                + "\\n\\nSettings 作用域\\n" + (HelperApplication.scoped
+                    ? "com.android.settings：已启用"
+                    : HelperApplication.service == null
+                        ? "尚未确认"
+                        : "com.android.settings：未启用")
+                + "\\n\\nHook 状态\\n" + hookDiagnostic);
+    }
+
+    private String hookDiagnosticStatus(List<String> rows) {
+        String status = "尚未收到 Settings 进程回报";
+        for (String row : rows) {
+            String[] fields = logFields(row);
+            if (fields.length < 3) continue;
+            String event = fields[2];
+            String detail = fields.length > 3 ? fields[3] : "";
+            if ("SETTINGS_PROCESS_LOADED".equals(event)) {
+                status = "Settings 进程已加载本模块，等待 Hook 匹配结果";
+            } else if ("HOOK_MATCHED".equals(event)) {
+                status = "已匹配：" + detail;
+            } else if ("HOOK_INSTALL_RESULT".equals(event)) {
+                status = "Hook 匹配检查完成：" + detail;
+            } else if ("HOOK_FAILED".equals(event) || "HOOK_PARTIAL".equals(event)) {
+                status = "Hook 发生匹配或运行问题；查看原始日志";
+            }
+        }
+        return status;
+    }
+
+    private String hookSummary(List<String> rows) {
+        String summary = rows.isEmpty() ? "等待系统响应" : "正在检查";
+        for (String row : rows) {
+            String[] fields = logFields(row);
+            if (fields.length < 3) continue;
+            String event = fields[2];
+            String detail = fields.length > 3 ? fields[3] : "";
+            if ("HOOK_INSTALL_RESULT".equals(event)) {
+                if (detail.contains("matched targets=2/2")) {
+                    summary = "克隆功能可用";
+                } else if (detail.contains("matched targets=0/2")) {
+                    summary = "克隆功能不可用";
+                } else {
+                    summary = "部分功能不可用";
+                }
+            } else if ("HOOK_FAILED".equals(event) || "HOOK_PARTIAL".equals(event)) {
+                summary = "部分功能不可用";
+            } else if ("SETTINGS_PROCESS_LOADED".equals(event) || "HOOK_MATCHED".equals(event)) {
+                summary = "正在检查";
+            }
+        }
+        return summary;
+    }
+
+    private String recentLogSummaries(List<String> rows) {
+        List<String> summaries = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (int i = rows.size() - 1; i >= 0 && summaries.size() < 3; i--) {
+            String[] fields = logFields(rows.get(i));
+            if (fields.length < 3) continue;
+            String summary = logSummary(fields[2]);
+            if (summary == null || !seen.add(summary)) continue;
+            summaries.add(shortTime(fields[0]) + "   " + summary);
+        }
+        Collections.reverse(summaries);
+        if (summaries.isEmpty()) return "暂无诊断记录";
+        StringBuilder output = new StringBuilder();
+        for (String line : summaries) {
+            if (output.length() > 0) output.append('\\n');
+            output.append(line);
+        }
+        return output.toString();
+    }
+
+    private String logSummary(String event) {
+        switch (event) {
+            case "REPORT_CHANNEL_CONNECTED":
+                return "系统设置已连接";
+            case "REPORT_CHANNEL_REJECTED":
+                return "系统设置连接失败";
+            case "SETTINGS_PROCESS_LOADED":
+                return "系统设置已启动";
+            case "HOOK_MATCHED":
+                return "系统设置检查通过";
+            case "HOOK_INSTALL_RESULT":
+                return "系统设置检查已完成";
+            case "HOOK_FAILED":
+                return "克隆功能不可用";
+            case "HOOK_PARTIAL":
+                return "部分克隆功能不可用";
+            case "CANDIDATE_LIST_UPDATED":
+                return "克隆应用列表已更新";
+            case "CONFIG_READ":
+                return "克隆功能设置已读取";
+            case "CLONE_PROFILE_QUERY_FAILED":
+                return "读取克隆档案失败";
+            default:
+                return "诊断状态已更新";
+        }
+    }
+
+    private String formatRawLogs(List<String> rows) {
+        StringBuilder output = new StringBuilder();
+        for (String row : rows) {
+            String[] fields = logFields(row);
+            if (output.length() > 0) output.append("\\n\\n");
+            if (fields.length < 3) {
+                output.append(row);
+                continue;
+            }
+            output.append(fields[0]).append('\\n').append(fields[1]).append('\\n').append(fields[2]);
+            if (fields.length > 3 && !fields[3].isEmpty()) {
+                output.append('\\n').append(fields[3]);
+            }
+        }
+        return output.toString();
+    }
+
+    private String[] logFields(String row) {
+        return row.split(" \\| ", 4);
+    }
+
+    private String shortTime(String timestamp) {
+        return timestamp.length() >= 16 && timestamp.charAt(10) == ' '
+                ? timestamp.substring(11, 16)
+                : timestamp;
     }
 
     private void save(String key, boolean value) {
         AppConfig.prefs().edit().putBoolean(key, value).apply();
         boolean sent = HelperApplication.sync();
         config.setText(sent
-                ? "已送达 Settings；需 Hook 读取后生效"
-                : "本机已保存，框架服务未连接");
+                ? "配置已保存，等待系统设置生效"
+                : "配置已保存，等待系统连接");
         Snackbar.make(root,
-                sent ? "配置已送达，等待 Settings Hook 读取" : "配置暂未送达",
+                sent ? "配置已送达，等待 Settings Hook 读取" : "配置已保存，等待系统连接",
                 Snackbar.LENGTH_LONG).show();
     }
 
@@ -547,7 +669,7 @@ public final class MainActivity extends AppCompatActivity {
     private void clearLogs() {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("清除日志")
-                .setMessage("清除本机保存的模块诊断记录？")
+                .setMessage("清除所有本地诊断记录？")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("清除", (dialog, which) -> {
                     getSharedPreferences("diagnostics", 0).edit().clear().apply();
@@ -564,14 +686,14 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private String diagnostics() {
-        return "Pixel Clone Profile Helper v0.1\n"
-                + device.getText() + "\n构建："
-                + deviceBuild.getText() + "\n" + deviceDetails.getText()
-                + "\nVector / LSPosed：" + framework.getText()
-                + "\nSettings 作用域：" + scope.getText()
-                + "\nSettings Hook：" + hook.getText()
-                + "\n配置状态：" + config.getText()
-                + "\n" + logText.getText();
+        return "Pixel Clone Profile Helper v0.1\\n"
+                + device.getText() + "\\n构建："
+                + deviceBuild.getText() + "\\n" + deviceDetails.getText()
+                + "\\n运行框架：" + HelperApplication.framework
+                + "\\nSettings 作用域：" + scope.getText()
+                + "\\n克隆功能状态：" + hook.getText()
+                + "\\n配置状态：" + config.getText()
+                + "\\n原始运行日志\\n" + formatRawLogs(logs());
     }
 
     private void copyDiagnostics() {
