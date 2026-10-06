@@ -1,10 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<style name="Theme.CloneHelper" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-		<item name="colorPrimary">@color/pcph_primary</item>
-		<item name="colorPrimaryVariant">@color/pcph_primary</item>
-		<item name="colorOnPrimary">@color/pcph_on_primary</item>
-		<item name="colorSecondary">@color/pcph_primary</item>
-		<item name="android:colorAccent">@color/pcph_primary</item>
-	</style>
+    <style name="Theme.CloneHelper" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/pcph_accent</item>
+        <item name="colorPrimaryVariant">@color/pcph_accent_pressed</item>
+        <item name="colorOnPrimary">@color/pcph_text_on_accent</item>
+        <item name="colorSecondary">@color/pcph_accent</item>
+        <item name="colorOnSecondary">@color/pcph_text_on_accent</item>
+        <item name="colorSurface">@color/pcph_surface</item>
+        <item name="colorOnSurface">@color/pcph_text_primary</item>
+        <item name="android:colorAccent">@color/pcph_accent</item>
+        <item name="android:windowBackground">@color/pcph_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+
+    <style name="TextAppearance.CloneHelper.Toolbar" parent="TextAppearance.Widget.AppCompat.Toolbar.Title">
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/pcph_text_on_dark</item>
+    </style>
+
+    <style name="TextAppearance.CloneHelper.SectionTitle" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/pcph_text_primary</item>
+    </style>
+
+    <style name="TextAppearance.CloneHelper.Primary" parent="TextAppearance.MaterialComponents.Body1">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:textColor">@color/pcph_text_primary</item>
+    </style>
+
+    <style name="TextAppearance.CloneHelper.Secondary" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:textColor">@color/pcph_text_secondary</item>
+    </style>
+
+    <style name="TextAppearance.CloneHelper.Caption" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/pcph_text_secondary</item>
+    </style>
+
+    <style name="TextAppearance.CloneHelper.Diagnostic" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/pcph_text_secondary</item>
+        <item name="android:fontFamily">monospace</item>
+    </style>
+
+    <style name="TextAppearance.CloneHelper.Button" parent="TextAppearance.MaterialComponents.Button">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/pcph_accent</item>
+    </style>
 </resources>
