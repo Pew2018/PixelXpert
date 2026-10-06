@@ -357,7 +357,7 @@ public final class MainActivity extends AppCompatActivity {
         return new ColorStateList(states, colors);
     }
 
-    private View selectableItemBackground() {
+    private android.graphics.drawable.Drawable selectableItemBackground() {
         TypedValue value = new TypedValue();
         if (getTheme().resolveAttribute(android.R.attr.selectableItemBackground, value, true)) {
             return getDrawable(value.resourceId);
