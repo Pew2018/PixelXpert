@@ -272,7 +272,7 @@ public final class MainActivity extends AppCompatActivity {
 
         TextView value = new TextView(this);
         value.setTextAppearance(R.style.TextAppearance_CloneHelper_Secondary);
-        value.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY);
+        value.setBreakStrategy(android.graphics.text.LineBreaker.BREAK_STRATEGY_HIGH_QUALITY);
         row.addView(value, matchWrap());
 
         parent.addView(row, matchWrap());
@@ -293,7 +293,7 @@ public final class MainActivity extends AppCompatActivity {
         text.setTextAppearance(diagnostic
                 ? R.style.TextAppearance_CloneHelper_Diagnostic
                 : R.style.TextAppearance_CloneHelper_Secondary);
-        text.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY);
+        text.setBreakStrategy(android.graphics.text.LineBreaker.BREAK_STRATEGY_HIGH_QUALITY);
         if (diagnostic) {
             text.setLineSpacing(dimension(R.dimen.pcph_log_line_spacing), 1f);
         }
