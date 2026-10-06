@@ -22,9 +22,9 @@ public final class MainActivity extends AppCompatActivity {
     @Override protected void onDestroy(){if(visible==this)visible=null;super.onDestroy();}
     static void refreshVisible(){MainActivity a=visible;if(a!=null)a.runOnUiThread(a::refresh);}
     private void build(){
-        root=new LinearLayout(this);root.setOrientation(1);
+        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         Toolbar bar=new Toolbar(this);bar.setTitle(R.string.app_name);bar.setTitleTextColor(getColor(R.color.pcph_on_primary));bar.setBackgroundColor(getColor(R.color.pcph_primary));root.addView(bar,new LinearLayout.LayoutParams(-1,dp(56)));
-        ScrollView scroll=new ScrollView(this);LinearLayout page=new LinearLayout(this);page.setOrientation(1);page.setPadding(dp(16),dp(12),dp(16),dp(20));scroll.addView(page);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        ScrollView scroll=new ScrollView(this);LinearLayout page=new LinearLayout(this);page.setOrientation(LinearLayout.VERTICAL);page.setPadding(dp(16),dp(12),dp(16),dp(20));scroll.addView(page);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout s=card(page,"运行状态");installed=line(s);framework=line(s);scope=line(s);hook=line(s);button(s,"刷新状态",v->refresh());
         LinearLayout c=card(page,"克隆功能");entry=new SwitchMaterial(this);entry.setText("开放系统克隆应用入口");entry.setMinHeight(dp(52));c.addView(entry);
         third=new SwitchMaterial(this);third.setText("允许克隆第三方应用");third.setMinHeight(dp(52));c.addView(third);
@@ -38,7 +38,7 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout card(LinearLayout parent,String title){
         MaterialCardView card=new MaterialCardView(this);card.setRadius(dp(8));card.setCardElevation(dp(2));card.setUseCompatPadding(true);
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(12);parent.addView(card,lp);
-        LinearLayout box=new LinearLayout(this);box.setOrientation(1);box.setPadding(dp(16),dp(12),dp(16),dp(12));card.addView(box);
+        LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(16),dp(12),dp(16),dp(12));card.addView(box);
         TextView h=new TextView(this);h.setText(title);h.setTextSize(18);h.setTypeface(null,android.graphics.Typeface.BOLD);box.addView(h);return box;
     }
     private TextView line(LinearLayout parent){TextView t=new TextView(this);t.setTextSize(14);t.setPadding(0,dp(7),0,dp(7));parent.addView(t);return t;}
