@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="pcph_toolbar_height">56dp</dimen>
+    <dimen name="pcph_toolbar_elevation">4dp</dimen>
+    <dimen name="pcph_page_horizontal">16dp</dimen>
+    <dimen name="pcph_page_top">16dp</dimen>
+    <dimen name="pcph_page_bottom">24dp</dimen>
+    <dimen name="pcph_card_spacing">16dp</dimen>
+    <dimen name="pcph_card_padding">16dp</dimen>
+    <dimen name="pcph_card_radius">4dp</dimen>
+    <dimen name="pcph_card_elevation">2dp</dimen>
+    <dimen name="pcph_section_spacing">8dp</dimen>
+    <dimen name="pcph_row_vertical_padding">4dp</dimen>
+    <dimen name="pcph_config_caption_top">8dp</dimen>
+    <dimen name="pcph_action_spacing">8dp</dimen>
+    <dimen name="pcph_switch_row_height">56dp</dimen>
+    <dimen name="pcph_switch_label_spacing">12dp</dimen>
+    <dimen name="pcph_touch_target">48dp</dimen>
+    <dimen name="pcph_button_min_width">88dp</dimen>
+    <dimen name="pcph_button_radius">2dp</dimen>
+    <dimen name="pcph_button_elevation">2dp</dimen>
+    <dimen name="pcph_button_horizontal_padding">4dp</dimen>
+    <dimen name="pcph_log_line_spacing">2dp</dimen>
+</resources>
