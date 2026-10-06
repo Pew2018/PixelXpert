@@ -107,3 +107,38 @@ PixelXpert 仓库使用 GPL-3.0。若直接移植或修改其代码并分发，�
 - [AOSP Settings `AppStateClonedAppsBridge`](https://android.googlesource.com/platform/packages/apps/Settings/+/main/src/com/android/settings/applications/AppStateClonedAppsBridge.java)
 - [AOSP Settings `CloneBackend`](https://android.googlesource.com/platform/packages/apps/Settings/+/main/src/com/android/settings/applications/manageapplications/CloneBackend.java)
 - [AOSP `UserManager.USER_TYPE_PROFILE_CLONE`](https://android.googlesource.com/platform/frameworks/base/+/61f01fe56bd8464acf3141212371a9176f3d6c9b/core/java/android/os/UserManager.java)
+
+
+## 9. 方案讨论记录（阶段性设想，2026-10-07）
+
+用户倾向于以 Vector / libxposed API 102 开发纯 LSPosed 模块，不提供本项目自己的 KernelSU 刷入入口。设备仍须另行安装可用的 Vector/Zygisk 框架；这是运行环境前提，不意味着新项目要发行 KSU 安装包。
+
+新 App 暂定只负责：
+
+- 显示模块/Hook 的运行状态。
+- 汇总兼容性检查结果和错误。
+- 保存、查看、导出有限范围的运行诊断日志。
+- 提供功能开关及跳转至 Android 原生克隆应用页面的入口。
+
+新 App 不自行显示应用克隆列表，也不实现克隆、安装或卸载；主要操作仍留在 Android Settings。
+
+### “开放入口”与“任意应用可克隆”的区别
+
+研究代码显示这是两件事：
+
+- Hook `ClonedAppsPreferenceController.getAvailabilityStatus()` 只让 Settings 的克隆应用入口通过可用性检查。
+- Hook `AppStateClonedAppsBridge` 并扩展 `mAllowedApps` 才会扩大候选应用范围。若不做这一步，页面仍受系统 `cloneable_apps` 白名单约束，不应宣称支持任意应用。
+- Hook 删除全部克隆档案菜单是单独的恢复/管理能力，可在首版中评估是否保留；删除档案会清除其数据。
+
+因此首版 Hook 范围可拆为“打开系统入口”为基础能力，“扩展候选列表”为可选策略。是否只启用入口、或同时开放全部普通应用，仍待讨论。系统应用应单独处理，不能因为候选列表可见就默认适合克隆。
+
+### 状态与日志的待研究问题
+
+不能把“模块已安装”“LSPosed 中已启用”“Settings Hook 已加载”“目标方法匹配成功”合并成一个绿色状态。新 App 的状态模型应分别呈现这些层次；其与 Hook 进程之间的可靠状态回传方式尚未选定。
+
+需要后续研究 Vector API 102 的模块服务/通信能力，再决定状态通道。日志初步限定为本模块诊断信息：系统版本与构建号、Hook 目标匹配结果、异常摘要和时间戳；不采集克隆应用内容、账户数据或应用私有数据。日志保留上限、清除与导出交互仍待讨论。
+
+### 视觉方向
+
+新 App 的界面方向为官方 MDC-Android View 组件与经典、克制的 Material 风格。避免 Material 3 Expressive 的主题和装饰方式。MDC-Android 当前处于维护模式，后续选定依赖版本时需固定版本并验证构建链。
+
