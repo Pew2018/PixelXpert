@@ -446,6 +446,7 @@ public final class MainActivity extends AppCompatActivity {
                 : HelperApplication.scoped ? "已启用" : "未启用");
 
         List<String> rows = logs();
+        if (rows.isEmpty()) expanded = false;
         String hookDiagnostic = hookDiagnosticStatus(rows);
         hook.setText(hookSummary(rows));
 
