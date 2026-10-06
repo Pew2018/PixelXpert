@@ -475,19 +475,19 @@ public final class MainActivity extends AppCompatActivity {
                 ? "尚无回报"
                 : rows.get(rows.size() - 1).split(" \\| ", 2)[0];
         device.setText("Android " + Build.VERSION.RELEASE + " · SDK " + Build.VERSION.SDK_INT
-                + "\\n" + Build.MANUFACTURER + " " + Build.MODEL);
+                + "\n" + Build.MANUFACTURER + " " + Build.MODEL);
         deviceBuild.setText(Build.DISPLAY);
         deviceReport.setText(rows.isEmpty() ? "尚无回报" : shortTime(lastReport));
-        deviceDetails.setText("Build fingerprint\\n" + Build.FINGERPRINT
-                + "\\n\\nBuild ID\\n" + Build.ID
-                + "\\n\\n最近 Settings 回报\\n" + lastReport
-                + "\\n\\n运行框架\\n" + HelperApplication.framework
-                + "\\n\\nSettings 作用域\\n" + (HelperApplication.scoped
+        deviceDetails.setText("Build fingerprint\n" + Build.FINGERPRINT
+                + "\n\nBuild ID\n" + Build.ID
+                + "\n\n最近 Settings 回报\n" + lastReport
+                + "\n\n运行框架\n" + HelperApplication.framework
+                + "\n\nSettings 作用域\n" + (HelperApplication.scoped
                     ? "com.android.settings：已启用"
                     : HelperApplication.service == null
                         ? "尚未确认"
                         : "com.android.settings：未启用")
-                + "\\n\\nHook 状态\\n" + hookDiagnostic);
+                + "\n\nHook 状态\n" + hookDiagnostic);
     }
 
     private String hookDiagnosticStatus(List<String> rows) {
@@ -548,7 +548,7 @@ public final class MainActivity extends AppCompatActivity {
         if (summaries.isEmpty()) return "暂无诊断记录";
         StringBuilder output = new StringBuilder();
         for (String line : summaries) {
-            if (output.length() > 0) output.append('\\n');
+            if (output.length() > 0) output.append('\n');
             output.append(line);
         }
         return output.toString();
@@ -585,14 +585,14 @@ public final class MainActivity extends AppCompatActivity {
         StringBuilder output = new StringBuilder();
         for (String row : rows) {
             String[] fields = logFields(row);
-            if (output.length() > 0) output.append("\\n\\n");
+            if (output.length() > 0) output.append("\n\n");
             if (fields.length < 3) {
                 output.append(row);
                 continue;
             }
-            output.append(fields[0]).append('\\n').append(fields[1]).append('\\n').append(fields[2]);
+            output.append(fields[0]).append('\n').append(fields[1]).append('\n').append(fields[2]);
             if (fields.length > 3 && !fields[3].isEmpty()) {
-                output.append('\\n').append(fields[3]);
+                output.append('\n').append(fields[3]);
             }
         }
         return output.toString();
@@ -614,9 +614,7 @@ public final class MainActivity extends AppCompatActivity {
         config.setText(sent
                 ? "配置已保存，等待系统设置生效"
                 : "配置已保存，等待系统连接");
-        Snackbar.make(root,
-                sent ? "配置已送达，等待 Settings Hook 读取" : "配置已保存，等待系统连接",
-                Snackbar.LENGTH_LONG).show();
+        Snackbar.make(root, "配置已保存", Snackbar.LENGTH_LONG).show();
     }
 
     private void openClonePage() {
@@ -673,14 +671,14 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private String diagnostics() {
-        return "Pixel Clone Profile Helper v0.1\\n"
-                + device.getText() + "\\n构建："
-                + deviceBuild.getText() + "\\n" + deviceDetails.getText()
-                + "\\n运行框架：" + HelperApplication.framework
-                + "\\nSettings 作用域：" + scope.getText()
-                + "\\n克隆功能状态：" + hook.getText()
-                + "\\n配置状态：" + config.getText()
-                + "\\n原始运行日志\\n" + formatRawLogs(logs());
+        return "Pixel Clone Profile Helper v0.1\n"
+                + device.getText() + "\n构建："
+                + deviceBuild.getText() + "\n" + deviceDetails.getText()
+                + "\n运行框架：" + HelperApplication.framework
+                + "\nSettings 作用域：" + scope.getText()
+                + "\n克隆功能状态：" + hook.getText()
+                + "\n配置状态：" + config.getText()
+                + "\n原始运行日志\n" + formatRawLogs(logs());
     }
 
     private void copyDiagnostics() {
