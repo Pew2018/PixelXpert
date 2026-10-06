@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pcph_status_bar">#212121</color>
+    <color name="pcph_toolbar">#303030</color>
+    <color name="pcph_accent">#2196F3</color>
+    <color name="pcph_accent_pressed">#1976D2</color>
+    <color name="pcph_background">#FAFAFA</color>
+    <color name="pcph_surface">#FFFFFF</color>
+    <color name="pcph_text_primary">#DE000000</color>
+    <color name="pcph_text_secondary">#8A000000</color>
+    <color name="pcph_text_disabled">#61000000</color>
+    <color name="pcph_text_on_dark">#FFFFFFFF</color>
+    <color name="pcph_text_on_accent">#FFFFFFFF</color>
+    <color name="pcph_divider">#1F000000</color>
+    <color name="pcph_error">#F44336</color>
+    <color name="pcph_success">#4CAF50</color>
+    <color name="pcph_ripple">#1F2196F3</color>
+    <color name="pcph_ripple_on_accent">#33FFFFFF</color>
+    <color name="pcph_switch_disabled_thumb">#FFBDBDBD</color>
+    <color name="pcph_switch_off_thumb">#FFFAFAFA</color>
+    <color name="pcph_switch_on_track">#662196F3</color>
+    <color name="pcph_switch_off_track">#4D000000</color>
+    <color name="pcph_switch_disabled_track">#1F000000</color>
+</resources>
