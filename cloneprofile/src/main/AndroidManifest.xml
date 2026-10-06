@@ -5,7 +5,7 @@
 		<intent><action android:name="android.settings.APPLICATION_SETTINGS" /></intent>
 	</queries>
 	<application android:name=".HelperApplication" android:allowBackup="false"
-		android:label="@string/app_name" android:supportsRtl="true" android:theme="@style/Theme.CloneHelper">
+		android:label="@string/app_name" android:description="@string/module_description" android:supportsRtl="true" android:theme="@style/Theme.CloneHelper">
 		<activity android:name=".MainActivity" android:exported="true">
 			<intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
 		</activity>

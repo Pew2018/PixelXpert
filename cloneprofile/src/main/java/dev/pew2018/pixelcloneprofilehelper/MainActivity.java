@@ -23,7 +23,7 @@ public final class MainActivity extends AppCompatActivity {
     static void refreshVisible(){MainActivity a=visible;if(a!=null)a.runOnUiThread(a::refresh);}
     private void build(){
         root=new LinearLayout(this);root.setOrientation(1);
-        Toolbar bar=new Toolbar(this);bar.setTitle(R.string.app_name);bar.setTitleTextColor(getColor(android.R.color.white));bar.setBackgroundColor(getColor(R.color.pcph_primary));root.addView(bar,new LinearLayout.LayoutParams(-1,dp(56)));
+        Toolbar bar=new Toolbar(this);bar.setTitle(R.string.app_name);bar.setTitleTextColor(getColor(R.color.pcph_on_primary));bar.setBackgroundColor(getColor(R.color.pcph_primary));root.addView(bar,new LinearLayout.LayoutParams(-1,dp(56)));
         ScrollView scroll=new ScrollView(this);LinearLayout page=new LinearLayout(this);page.setOrientation(1);page.setPadding(dp(16),dp(12),dp(16),dp(20));scroll.addView(page);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout s=card(page,"运行状态");installed=line(s);framework=line(s);scope=line(s);hook=line(s);button(s,"刷新状态",v->refresh());
         LinearLayout c=card(page,"克隆功能");entry=new SwitchMaterial(this);entry.setText("开放系统克隆应用入口");entry.setMinHeight(dp(52));c.addView(entry);
@@ -59,7 +59,7 @@ public final class MainActivity extends AppCompatActivity {
     }
     private void save(String key,boolean value){AppConfig.prefs().edit().putBoolean(key,value).apply();boolean sent=HelperApplication.sync();config.setText(sent?"已下发；需 Settings Hook 读取":"本机已保存；框架服务未连接");Snackbar.make(root,sent?"配置已下发，重新打开克隆应用页面":"配置暂未送达",Snackbar.LENGTH_LONG).show();}
     private void openClonePage(){
-        Intent i=new Intent("android.settings.MANAGE_CLONED_APPS_SETTINGS");
+        Intent i=new Intent("android.settings.MANAGE_CLONED_APPS_SETTINGS").setPackage("com.android.settings");
         if(i.resolveActivity(getPackageManager())!=null){try{startActivity(i);return;}catch(RuntimeException ignored){}}
         new MaterialAlertDialogBuilder(this).setTitle("原生克隆页面不可用").setMessage("系统未公开可解析的克隆页面，可改为打开应用设置。")
           .setNegativeButton("取消",null).setPositiveButton("打开应用设置",(d,w)->startActivity(new Intent(Settings.ACTION_APPLICATION_SETTINGS))).show();

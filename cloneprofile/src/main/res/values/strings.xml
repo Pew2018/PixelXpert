@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 	<string name="app_name">Pixel Clone Profile Helper</string>
+	<string name="module_description">在 Android Settings 中开放系统克隆应用入口，并可扩展第三方应用候选项。</string>
 	<string name="report_service_description">接收 Android Settings 进程发送的模块诊断状态</string>
 	<color name="pcph_primary">#3F51B5</color>
 	<color name="pcph_on_primary">#FFFFFF</color>
