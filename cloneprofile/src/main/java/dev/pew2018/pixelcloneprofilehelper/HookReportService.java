@@ -13,7 +13,7 @@ public final class HookReportService extends Service {
         long time=b.getLong("time",System.currentTimeMillis());SimpleDateFormat format=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS UTC",Locale.US);format.setTimeZone(TimeZone.getTimeZone("UTC"));
         append(format.format(new Date(time))+" | com.android.settings | "+e+(d.isEmpty()?"":" | "+d));MainActivity.refreshVisible();return true;
     }));}
-    @Override public IBinder onBind(Intent i){return settingsUid(Binder.getCallingUid())?messenger.getBinder():null;}
+    @Override public IBinder onBind(Intent i){return messenger.getBinder();}
     private boolean settingsUid(int uid){try{String[] p=getPackageManager().getPackagesForUid(uid);if(p!=null)for(String s:p)if("com.android.settings".equals(s))return true;}
         catch(RuntimeException e){Log.w("PCPH","Caller check failed");}return false;}
     private void append(String line){android.content.SharedPreferences p=getSharedPreferences("diagnostics",MODE_PRIVATE);
