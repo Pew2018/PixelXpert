@@ -17,6 +17,8 @@ jobs:
           java-version: '17'
           cache: gradle
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
       - name: Install Android 17 preview SDK platform
         run: |
           yes | sdkmanager --licenses >/dev/null
