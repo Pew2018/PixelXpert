@@ -28,7 +28,7 @@ jobs:
         run: ./gradlew :cloneprofile:lintDebug :cloneprofile:testDebugUnitTest :cloneprofile:assembleDebug :cloneprofile:assembleRelease
       - uses: actions/upload-artifact@v4
         with:
-          name: pixel-clone-profile-helper-v0.1-main
+          name: pixel-clone-profile-helper-1.0.0-main
           path: |
             cloneprofile/build/outputs/apk/debug/*.apk
             cloneprofile/build/outputs/apk/release/*.apk
