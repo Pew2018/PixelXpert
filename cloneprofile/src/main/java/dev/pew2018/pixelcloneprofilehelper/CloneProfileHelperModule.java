@@ -8,7 +8,7 @@ public final class CloneProfileHelperModule extends XposedModule {
     @Override public void onModuleLoaded(XposedModuleInterface.ModuleLoadedParam p){log(Log.INFO,"PCPH","Loaded in "+p.getProcessName());}
     @Override public void onPackageLoaded(XposedModuleInterface.PackageLoadedParam p){
         if(!"com.android.settings".equals(p.getPackageName()))return;
-        HookReporter reporter=new HookReporter(this); reporter.report("SETTINGS_PROCESS_LOADED","SDK "+android.os.Build.VERSION.SDK_INT);
+        HookReporter reporter=new HookReporter(this); String fp=android.os.Build.FINGERPRINT; if(fp.length()>48)fp=fp.substring(0,48); reporter.report("SETTINGS_PROCESS_LOADED","Android "+android.os.Build.VERSION.RELEASE+"; SDK="+android.os.Build.VERSION.SDK_INT+"; device="+android.os.Build.MODEL+"; fingerprint="+fp);
         HookInstaller.install(this,p.getDefaultClassLoader(),reporter);
     }
     static boolean[] config(CloneProfileHelperModule m){

@@ -55,7 +55,9 @@ public final class MainActivity extends AppCompatActivity {
         if(entry!=null){entry.setChecked(AppConfig.prefs().getBoolean(HelperApplication.ENTRY,true));third.setChecked(AppConfig.prefs().getBoolean(HelperApplication.THIRD,true));}
         StringBuilder out=new StringBuilder();int n=expanded?rows.size():Math.min(5,rows.size());for(int i=Math.max(0,rows.size()-n);i<rows.size();i++)out.append(rows.get(i)).append('\n');
         logText.setText(rows.isEmpty()?"暂无诊断记录":out.toString().trim());
-        device.setText("Android "+Build.VERSION.RELEASE+"（SDK "+Build.VERSION.SDK_INT+"）\n设备："+Build.MANUFACTURER+" "+Build.MODEL+"\n构建："+Build.DISPLAY+"\n检查时间："+DateFormat.getDateTimeInstance().format(new Date()));
+        String lastReport=rows.isEmpty()?"未知（Settings 尚无回报）":rows.get(rows.size()-1).split(" \\| ",2)[0];
+        String fingerprint=Build.FINGERPRINT; if(fingerprint.length()>64)fingerprint=fingerprint.substring(0,64)+"…";
+        device.setText("Android "+Build.VERSION.RELEASE+"（SDK "+Build.VERSION.SDK_INT+"）\n设备："+Build.MANUFACTURER+" "+Build.MODEL+"\n构建："+Build.DISPLAY+"\n指纹片段："+fingerprint+"\n最近 Settings 回报："+lastReport);
     }
     private void save(String key,boolean value){AppConfig.prefs().edit().putBoolean(key,value).apply();boolean sent=HelperApplication.sync();config.setText(sent?"已下发；需 Settings Hook 读取":"本机已保存；框架服务未连接");Snackbar.make(root,sent?"配置已下发，重新打开克隆应用页面":"配置暂未送达",Snackbar.LENGTH_LONG).show();}
     private void openClonePage(){
