@@ -436,10 +436,20 @@ public final class MainActivity extends AppCompatActivity {
         parent.addView(button, wrapWrap());
     }
 
+    private String appVersionName() {
+        try {
+            android.content.pm.PackageInfo info =
+                    getPackageManager().getPackageInfo(getPackageName(), 0);
+            return info.versionName == null ? "未知" : info.versionName;
+        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+            return "未知";
+        }
+    }
+
     private void refresh() {
         if (framework == null) return;
 
-        installed.setText("已安装 · v" + BuildConfig.VERSION_NAME);
+        installed.setText("已安装 · v" + appVersionName());
         framework.setText(HelperApplication.service == null ? "等待连接" : "已连接");
         scope.setText(HelperApplication.service == null
                 ? "尚未确认"
@@ -672,7 +682,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private String diagnostics() {
-        return "Pixel Clone Profile Helper v" + BuildConfig.VERSION_NAME + "\n"
+        return "Pixel Clone Profile Helper v" + appVersionName() + "\n"
                 + device.getText() + "\n构建："
                 + deviceBuild.getText() + "\n" + deviceDetails.getText()
                 + "\n运行框架：" + HelperApplication.framework
