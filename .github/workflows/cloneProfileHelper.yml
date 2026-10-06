@@ -17,8 +17,10 @@ jobs:
           java-version: '17'
           cache: gradle
       - uses: android-actions/setup-android@v3
-        with:
-          packages: 'platforms;android-37'
+      - name: Install Android 17 preview SDK platform
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
       - run: chmod +x gradlew
       - name: Build and verify only the standalone module
         run: ./gradlew :cloneprofile:lintDebug :cloneprofile:testDebugUnitTest :cloneprofile:assembleDebug :cloneprofile:assembleRelease
