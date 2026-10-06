@@ -9,7 +9,7 @@ final class HookReporter {
     HookReporter(XposedModule m){module=m;try{
         Class<?> c=Class.forName("android.app.ActivityThread");context=(Context)c.getDeclaredMethod("currentApplication").invoke(null);connect();
     }catch(ReflectiveOperationException|RuntimeException e){m.log(Log.WARN,"PCPH","Settings context unavailable: "+e.getClass().getSimpleName());}}
-    private static synchronized void connect(){if(connecting||remote!=null||context==null)return;connecting=true;
+    private static synchronized void connect(){if(context==null){try{Class<?> c=Class.forName("android.app.ActivityThread");context=(Context)c.getDeclaredMethod("currentApplication").invoke(null);}catch(ReflectiveOperationException|RuntimeException ignored){}}if(connecting||remote!=null||context==null)return;connecting=true;
         try{Intent i=new Intent().setComponent(new ComponentName("dev.pew2018.pixelcloneprofilehelper","dev.pew2018.pixelcloneprofilehelper.HookReportService"));
             context.bindService(i,new ServiceConnection(){
                 public void onServiceConnected(ComponentName n,IBinder b){remote=new Messenger(b);connecting=false;report("REPORT_CHANNEL_CONNECTED","ready");}
