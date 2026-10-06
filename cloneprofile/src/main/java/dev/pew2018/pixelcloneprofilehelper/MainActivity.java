@@ -5,7 +5,6 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -16,7 +15,6 @@ import android.view.Window;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -386,7 +384,7 @@ public final class MainActivity extends AppCompatActivity {
         button.setText(label);
         button.setAllCaps(false);
         button.setTextAppearance(R.style.TextAppearance_CloneHelper_Button);
-        button.setTextColor(getColor(R.color.pcph_accent));
+        button.setTextColor(flatButtonTextColors());
         button.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
         button.setRippleColor(ColorStateList.valueOf(getColor(R.color.pcph_ripple)));
         button.setCornerRadius(dimension(R.dimen.pcph_button_radius));
@@ -407,6 +405,18 @@ public final class MainActivity extends AppCompatActivity {
         parent.addView(button, buttonParams);
     }
 
+    private ColorStateList flatButtonTextColors() {
+        int[][] states = new int[][]{
+                new int[]{-android.R.attr.state_enabled},
+                new int[]{}
+        };
+        int[] colors = new int[]{
+                getColor(R.color.pcph_text_disabled),
+                getColor(R.color.pcph_accent)
+        };
+        return new ColorStateList(states, colors);
+    }
+
     private void raisedButton(LinearLayout parent, String label, View.OnClickListener listener) {
         MaterialButton button = new MaterialButton(this);
         button.setText(label);
@@ -424,29 +434,6 @@ public final class MainActivity extends AppCompatActivity {
         button.setElevation(dimension(R.dimen.pcph_button_elevation));
         button.setOnClickListener(listener);
         parent.addView(button, wrapWrap());
-    }
-
-    private void addFlatButtonWeighted(LinearLayout parent, String label, View.OnClickListener listener) {
-        MaterialButton button = new MaterialButton(this);
-        button.setText(label);
-        button.setAllCaps(false);
-        button.setTextAppearance(R.style.TextAppearance_CloneHelper_Button);
-        button.setTextColor(getColor(R.color.pcph_accent));
-        button.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
-        button.setRippleColor(ColorStateList.valueOf(getColor(R.color.pcph_ripple)));
-        button.setCornerRadius(dimension(R.dimen.pcph_button_radius));
-        button.setInsetTop(0);
-        button.setInsetBottom(0);
-        button.setMinHeight(dimension(R.dimen.pcph_touch_target));
-        button.setMinimumHeight(dimension(R.dimen.pcph_touch_target));
-        button.setMinWidth(0);
-        button.setPadding(dimension(R.dimen.pcph_button_horizontal_padding), 0,
-                dimension(R.dimen.pcph_button_horizontal_padding), 0);
-        button.setElevation(0f);
-        button.setStateListAnimator(null);
-        button.setOnClickListener(listener);
-        parent.addView(button, new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
     }
 
     private void refresh() {
@@ -524,7 +511,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private String hookSummary(List<String> rows) {
-        String summary = rows.isEmpty() ? "等待系统响应" : "正在检查";
+        String summary = "等待系统响应";
         for (String row : rows) {
             String[] fields = logFields(row);
             if (fields.length < 3) continue;
