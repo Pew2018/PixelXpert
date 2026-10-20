@@ -25,7 +25,6 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.switchmaterial.SwitchMaterial;
@@ -115,54 +114,58 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(
-                dimension(R.dimen.pcph_page_horizontal),
+                0,
                 dimension(R.dimen.pcph_page_top),
-                dimension(R.dimen.pcph_page_horizontal),
+                0,
                 dimension(R.dimen.pcph_page_bottom));
         scroll.addView(page, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
         root.addView(scroll, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        LinearLayout statusCard = card(page, "运行状态");
-        installed = infoRow(statusCard, "模块 APK");
-        framework = infoRow(statusCard, "运行框架");
-        scope = infoRow(statusCard, "作用范围");
-        hook = infoRow(statusCard, "系统设置");
-        addActionRow(statusCard, button -> flatButton(button, "刷新状态", v -> refresh()));
+        LinearLayout statusSection = section(page, "运行状态");
+        installed = infoRow(statusSection, "模块 APK");
+        framework = infoRow(statusSection, "运行框架");
+        scope = infoRow(statusSection, "作用范围");
+        hook = infoRow(statusSection, "系统设置");
+        addActionRow(statusSection, button -> flatButton(button, "刷新状态", v -> refresh()));
 
-        LinearLayout cloneCard = card(page, "克隆功能");
-        entry = switchRow(cloneCard, "启用系统克隆入口");
-        third = switchRow(cloneCard, "允许克隆第三方应用");
-        addSectionCaption(cloneCard, "配置状态");
-        config = bodyText(cloneCard, false);
-        addActionRow(cloneCard, button -> raisedButton(button, "打开系统克隆设置", v -> openClonePage()));
+        LinearLayout cloneSection = section(page, "克隆功能");
+        entry = switchRow(cloneSection, "启用系统克隆入口");
+        third = switchRow(cloneSection, "允许克隆第三方应用");
+        addSectionCaption(cloneSection, "配置状态");
+        config = bodyText(cloneSection, false);
+        config.setTextAppearance(R.style.TextAppearance_CloneHelper_Secondary);
+        navigationRow(cloneSection, "打开系统克隆设置", v -> openClonePage());
 
-        LinearLayout logsCard = card(page, "运行日志");
-        logText = bodyText(logsCard, false);
+        LinearLayout logsSection = section(page, "运行日志");
+        logText = bodyText(logsSection, false);
         LinearLayout logActions = new LinearLayout(this);
         logActions.setOrientation(LinearLayout.HORIZONTAL);
-        logActions.setGravity(Gravity.CENTER_VERTICAL);
-        flatButton(logActions, "展开更多", v -> {
+        logActions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        LinearLayout expandActions = new LinearLayout(this);
+        expandActions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        logsSection.addView(expandActions, matchWrap());
+        flatButton(expandActions, "展开更多", v -> {
             expanded = !expanded;
             refresh();
         });
-        expandLogsButton = (MaterialButton) logActions.getChildAt(0);
+        expandLogsButton = (MaterialButton) expandActions.getChildAt(0);
         flatButton(logActions, "导出诊断", v -> exportLogs());
         flatButton(logActions, "清除", v -> clearLogs());
-        logsCard.addView(logActions, matchWrap());
+        logsSection.addView(logActions, matchWrap());
 
-        LinearLayout diagnosticsCard = card(page, "设备与诊断");
-        device = bodyText(diagnosticsCard, false);
+        LinearLayout diagnosticsSection = section(page, "设备与诊断");
+        device = bodyText(diagnosticsSection, false);
         device.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
-        deviceBuild = infoRow(diagnosticsCard, "构建");
-        deviceReport = infoRow(diagnosticsCard, "Settings 回报");
-        deviceDetails = bodyText(diagnosticsCard, true);
+        deviceBuild = infoRow(diagnosticsSection, "构建");
+        deviceReport = infoRow(diagnosticsSection, "Settings 回报");
+        deviceDetails = bodyText(diagnosticsSection, true);
         deviceDetails.setTextIsSelectable(true);
         deviceDetails.setVisibility(View.GONE);
         LinearLayout diagnosticActions = new LinearLayout(this);
-        diagnosticActions.setOrientation(LinearLayout.HORIZONTAL);
-        diagnosticActions.setGravity(Gravity.CENTER_VERTICAL);
+        diagnosticActions.setOrientation(LinearLayout.VERTICAL);
+        diagnosticActions.setGravity(Gravity.END);
         flatButton(diagnosticActions, "查看详细信息", v -> {
             detailsExpanded = !detailsExpanded;
             deviceDetails.setVisibility(detailsExpanded ? View.VISIBLE : View.GONE);
@@ -170,7 +173,7 @@ public final class MainActivity extends AppCompatActivity {
         });
         detailsButton = (MaterialButton) diagnosticActions.getChildAt(0);
         flatButton(diagnosticActions, "复制诊断信息", v -> copyDiagnostics());
-        diagnosticsCard.addView(diagnosticActions, matchWrap());
+        diagnosticsSection.addView(diagnosticActions, matchWrap());
 
         setContentView(root);
         applyWindowInsets(root, page);
@@ -203,9 +206,9 @@ public final class MainActivity extends AppCompatActivity {
             }
 
             page.setPadding(
-                    dimension(R.dimen.pcph_page_horizontal) + safeInsets.left,
+                    safeInsets.left,
                     dimension(R.dimen.pcph_page_top),
-                    dimension(R.dimen.pcph_page_horizontal) + safeInsets.right,
+                    safeInsets.right,
                     dimension(R.dimen.pcph_page_bottom) + safeInsets.bottom);
 
             WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), rootView);
@@ -224,44 +227,57 @@ public final class MainActivity extends AppCompatActivity {
         return mode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
     }
 
-    private LinearLayout card(LinearLayout parent, String title) {
-        MaterialCardView card = new MaterialCardView(this);
-        card.setCardBackgroundColor(getColor(R.color.pcph_surface));
-        card.setRadius(dimension(R.dimen.pcph_card_radius));
-        card.setCardElevation(dimension(R.dimen.pcph_card_elevation));
-        card.setUseCompatPadding(false);
-        card.setPreventCornerOverlap(true);
-        card.setClickable(false);
-        card.setFocusable(false);
-
-        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        cardParams.bottomMargin = dimension(R.dimen.pcph_card_spacing);
-        parent.addView(card, cardParams);
-
+    private LinearLayout section(LinearLayout parent, String title) {
+        if (parent.getChildCount() > 0) {
+            View divider = new View(this);
+            divider.setBackgroundColor(getColor(R.color.pcph_divider));
+            LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dimension(R.dimen.pcph_divider_height));
+            lineParams.topMargin = dimension(R.dimen.pcph_section_bottom);
+            parent.addView(divider, lineParams);
+        }
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(
-                dimension(R.dimen.pcph_card_padding),
-                dimension(R.dimen.pcph_card_padding_vertical),
-                dimension(R.dimen.pcph_card_padding),
-                dimension(R.dimen.pcph_card_padding_vertical));
-        card.addView(box, new MaterialCardView.LayoutParams(
-                MaterialCardView.LayoutParams.MATCH_PARENT, MaterialCardView.LayoutParams.WRAP_CONTENT));
-
+        int horizontal = dimension(R.dimen.pcph_page_horizontal);
+        box.setPadding(horizontal, dimension(R.dimen.pcph_section_top), horizontal, 0);
+        parent.addView(box, matchWrap());
         TextView heading = new TextView(this);
         heading.setText(title);
         heading.setTextAppearance(R.style.TextAppearance_CloneHelper_SectionTitle);
-        box.addView(heading, matchWrap());
-        LinearLayout.LayoutParams headingParams = (LinearLayout.LayoutParams) heading.getLayoutParams();
+        heading.setAccessibilityHeading(true);
+        LinearLayout.LayoutParams headingParams = matchWrap();
         headingParams.bottomMargin = dimension(R.dimen.pcph_section_spacing);
-        heading.setLayoutParams(headingParams);
+        box.addView(heading, headingParams);
         return box;
+    }
+
+    private void navigationRow(LinearLayout parent, String label, View.OnClickListener listener) {
+        TextView row = new TextView(this);
+        row.setText(label);
+        row.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
+        row.setTextColor(getColor(R.color.pcph_accent));
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(dimension(R.dimen.pcph_switch_row_height));
+        row.setBackground(selectableItemBackground());
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setOnClickListener(listener);
+        ViewCompat.setAccessibilityDelegate(row, new androidx.core.view.AccessibilityDelegateCompat() {
+            @Override
+            public void onInitializeAccessibilityNodeInfo(View host,
+                    androidx.core.view.accessibility.AccessibilityNodeInfoCompat info) {
+                super.onInitializeAccessibilityNodeInfo(host, info);
+                info.setClassName(android.widget.Button.class.getName());
+            }
+        });
+        parent.addView(row, matchWrap());
     }
 
     private TextView infoRow(LinearLayout parent, String label) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(dimension(R.dimen.pcph_info_row_height));
         row.setPadding(0, dimension(R.dimen.pcph_row_vertical_padding), 0,
                 dimension(R.dimen.pcph_row_vertical_padding));
 
@@ -273,7 +289,9 @@ public final class MainActivity extends AppCompatActivity {
         TextView value = new TextView(this);
         value.setTextAppearance(R.style.TextAppearance_CloneHelper_Secondary);
         value.setBreakStrategy(android.graphics.text.LineBreaker.BREAK_STRATEGY_HIGH_QUALITY);
-        row.addView(value, matchWrap());
+        LinearLayout.LayoutParams valueParams = matchWrap();
+        valueParams.topMargin = dimension(R.dimen.pcph_summary_spacing);
+        row.addView(value, valueParams);
 
         parent.addView(row, matchWrap());
         return value;
@@ -292,7 +310,7 @@ public final class MainActivity extends AppCompatActivity {
         TextView text = new TextView(this);
         text.setTextAppearance(diagnostic
                 ? R.style.TextAppearance_CloneHelper_Diagnostic
-                : R.style.TextAppearance_CloneHelper_Secondary);
+                : R.style.TextAppearance_CloneHelper_Body);
         text.setBreakStrategy(android.graphics.text.LineBreaker.BREAK_STRATEGY_HIGH_QUALITY);
         if (diagnostic) {
             text.setLineSpacing(dimension(R.dimen.pcph_log_line_spacing), 1f);
@@ -320,7 +338,7 @@ public final class MainActivity extends AppCompatActivity {
         control.setTrackTintList(switchTrackColors());
         LinearLayout.LayoutParams switchParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        switchParams.leftMargin = dimension(R.dimen.pcph_switch_label_spacing);
+        switchParams.setMarginStart(dimension(R.dimen.pcph_switch_label_spacing));
         row.addView(control, switchParams);
         row.setClickable(true);
         row.setFocusable(true);
@@ -400,7 +418,7 @@ public final class MainActivity extends AppCompatActivity {
         button.setOnClickListener(listener);
         LinearLayout.LayoutParams buttonParams = wrapWrap();
         if (parent.getChildCount() > 0) {
-            buttonParams.leftMargin = dimension(R.dimen.pcph_section_spacing);
+            buttonParams.setMarginStart(dimension(R.dimen.pcph_section_spacing));
         }
         parent.addView(button, buttonParams);
     }
@@ -415,25 +433,6 @@ public final class MainActivity extends AppCompatActivity {
                 getColor(R.color.pcph_accent)
         };
         return new ColorStateList(states, colors);
-    }
-
-    private void raisedButton(LinearLayout parent, String label, View.OnClickListener listener) {
-        MaterialButton button = new MaterialButton(this);
-        button.setText(label);
-        button.setAllCaps(false);
-        button.setTextAppearance(R.style.TextAppearance_CloneHelper_Button);
-        button.setTextColor(getColor(R.color.pcph_text_on_accent));
-        button.setBackgroundTintList(ColorStateList.valueOf(getColor(R.color.pcph_accent)));
-        button.setRippleColor(ColorStateList.valueOf(getColor(R.color.pcph_ripple_on_accent)));
-        button.setCornerRadius(dimension(R.dimen.pcph_button_radius));
-        button.setInsetTop(0);
-        button.setInsetBottom(0);
-        button.setMinHeight(dimension(R.dimen.pcph_touch_target));
-        button.setMinimumHeight(dimension(R.dimen.pcph_touch_target));
-        button.setMinWidth(dimension(R.dimen.pcph_button_min_width));
-        button.setElevation(dimension(R.dimen.pcph_button_elevation));
-        button.setOnClickListener(listener);
-        parent.addView(button, wrapWrap());
     }
 
     private String appVersionName() {
@@ -476,7 +475,7 @@ public final class MainActivity extends AppCompatActivity {
             logText.setTextIsSelectable(true);
         } else {
             logText.setText(recentLogSummaries(rows));
-            logText.setTextAppearance(R.style.TextAppearance_CloneHelper_Secondary);
+            logText.setTextAppearance(R.style.TextAppearance_CloneHelper_Body);
             logText.setTextIsSelectable(false);
         }
         expandLogsButton.setText(expanded ? "收起" : "展开更多");
@@ -625,7 +624,7 @@ public final class MainActivity extends AppCompatActivity {
         config.setText(sent
                 ? "配置已保存，等待系统设置生效"
                 : "配置已保存，等待系统连接");
-        Snackbar.make(root, "配置已保存", Snackbar.LENGTH_LONG).show();
+        showFeedback("配置已保存", Snackbar.LENGTH_LONG);
     }
 
     private void openClonePage() {
@@ -639,7 +638,7 @@ public final class MainActivity extends AppCompatActivity {
                 // Fall through to the documented Settings fallback.
             }
         }
-        new MaterialAlertDialogBuilder(this)
+        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_CloneHelper_Dialog)
                 .setTitle("原生克隆页面不可用")
                 .setMessage("系统未公开可解析的克隆页面，可改为打开应用设置。")
                 .setNegativeButton("取消", null)
@@ -649,7 +648,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void exportLogs() {
-        new MaterialAlertDialogBuilder(this)
+        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_CloneHelper_Dialog)
                 .setTitle("导出本地诊断")
                 .setMessage("分享前请检查内容。日志只包含时间、Hook 事件与设备构建信息，不包含应用列表或账户数据。")
                 .setNegativeButton("取消", null)
@@ -663,7 +662,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void clearLogs() {
-        new MaterialAlertDialogBuilder(this)
+        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_CloneHelper_Dialog)
                 .setTitle("清除日志")
                 .setMessage("清除所有本地诊断记录？")
                 .setNegativeButton("取消", null)
@@ -692,10 +691,17 @@ public final class MainActivity extends AppCompatActivity {
                 + "\n原始运行日志\n" + formatRawLogs(logs());
     }
 
+    private void showFeedback(String message, int duration) {
+        Snackbar feedback = Snackbar.make(root, message, duration);
+        feedback.setBackgroundTint(getColor(R.color.pcph_snackbar_background));
+        feedback.setTextColor(Color.WHITE);
+        feedback.show();
+    }
+
     private void copyDiagnostics() {
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         clipboard.setPrimaryClip(ClipData.newPlainText("diagnostics", diagnostics()));
-        Snackbar.make(root, "诊断信息已复制", Snackbar.LENGTH_SHORT).show();
+        showFeedback("诊断信息已复制", Snackbar.LENGTH_SHORT);
     }
 
     private LinearLayout.LayoutParams matchWrap() {
@@ -712,3 +718,4 @@ public final class MainActivity extends AppCompatActivity {
         return getResources().getDimensionPixelSize(resource);
     }
 }
+

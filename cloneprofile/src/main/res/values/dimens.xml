@@ -3,7 +3,7 @@
     <dimen name="pcph_toolbar_height">56dp</dimen>
     <dimen name="pcph_toolbar_elevation">4dp</dimen>
     <dimen name="pcph_page_horizontal">16dp</dimen>
-    <dimen name="pcph_page_top">16dp</dimen>
+    <dimen name="pcph_page_top">0dp</dimen>
     <dimen name="pcph_page_bottom">24dp</dimen>
     <dimen name="pcph_card_spacing">16dp</dimen>
     <dimen name="pcph_card_padding">16dp</dimen>
@@ -11,7 +11,7 @@
     <dimen name="pcph_card_radius">2dp</dimen>
     <dimen name="pcph_card_elevation">2dp</dimen>
     <dimen name="pcph_section_spacing">8dp</dimen>
-    <dimen name="pcph_row_vertical_padding">4dp</dimen>
+    <dimen name="pcph_row_vertical_padding">12dp</dimen>
     <dimen name="pcph_config_caption_top">8dp</dimen>
     <dimen name="pcph_action_spacing">8dp</dimen>
     <dimen name="pcph_switch_row_height">56dp</dimen>
@@ -22,4 +22,10 @@
     <dimen name="pcph_button_elevation">2dp</dimen>
     <dimen name="pcph_button_horizontal_padding">8dp</dimen>
     <dimen name="pcph_log_line_spacing">2dp</dimen>
+    <dimen name="pcph_info_row_height">72dp</dimen>
+    <dimen name="pcph_summary_spacing">3dp</dimen>
+    <dimen name="pcph_section_top">24dp</dimen>
+    <dimen name="pcph_section_bottom">16dp</dimen>
+    <dimen name="pcph_divider_height">1dp</dimen>
 </resources>
+
