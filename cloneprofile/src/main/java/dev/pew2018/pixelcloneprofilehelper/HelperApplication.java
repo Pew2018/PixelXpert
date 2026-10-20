@@ -24,7 +24,7 @@ public final class HelperApplication extends Application implements XposedServic
     private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> new Thread(r, "CloneHelper-state"));
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static volatile long serviceEpoch, syncRevision;
-    private static long metadataRevision;
+    private static long metadataRevision, appliedMetadataRevision;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -118,9 +118,14 @@ public final class HelperApplication extends Application implements XposedServic
                 final String frameworkResult = description;
                 MAIN.post(() -> {
                     if (task.cancelled) return;
-                    boolean valid = epoch == serviceEpoch && revision == metadataRevision && current == service;
-                    if (valid && current != null) {
-                        scoped = scopeResult; framework = frameworkResult; metadataReady = result;
+                    // A cancelled newer read must not invalidate the pending service-bind read.
+                    // Serial IO + this applied watermark reject genuinely older published results.
+                    boolean valid = epoch == serviceEpoch && revision > appliedMetadataRevision && current == service;
+                    if (valid) {
+                        appliedMetadataRevision = revision;
+                        if (current != null) {
+                            scoped = scopeResult; framework = frameworkResult; metadataReady = result;
+                        }
                     }
                     MainActivity.refreshVisible();
                     if (complete != null) complete.accept(valid && result);
