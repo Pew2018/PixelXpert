@@ -8,4 +8,8 @@
     <string name="config_wait_connection">Waiting for the framework connection to send the saved configuration</string>
     <string name="refresh_status">Refresh status</string>
     <string name="status_refreshed">Status refreshed</string>
+    <string name="config_sending">Saved locally; sending configuration to the framework</string>
+    <string name="config_sync_failed">Saved locally; sending failed. Reconnect or save again to retry</string>
+    <string name="refreshing_status">Refreshing status</string>
+    <string name="status_refresh_failed">Could not refresh framework status</string>
 </resources>

@@ -19,7 +19,7 @@
     <dimen name="pcph_log_date_height">36dp</dimen>
     <dimen name="pcph_log_text_offset">64dp</dimen>
     <dimen name="pcph_dialog_max_width">360dp</dimen>
-    <dimen name="pcph_page_motion_distance">8dp</dimen>
+    <dimen name="pcph_page_motion_distance">20dp</dimen>
     <dimen name="pcph_space_2">2dp</dimen>
     <dimen name="pcph_space_4">4dp</dimen>
     <dimen name="pcph_space_8">8dp</dimen>

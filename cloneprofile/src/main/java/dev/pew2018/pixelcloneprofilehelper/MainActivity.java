@@ -1,18 +1,17 @@
 package dev.pew2018.pixelcloneprofilehelper;
 
 import android.animation.ObjectAnimator;
+import java.lang.ref.WeakReference;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
+import androidx.activity.BackEventCompat;
+import androidx.core.view.OneShotPreDrawListener;
 import android.animation.ValueAnimator;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.TextAppearanceSpan;
-import android.transition.ChangeBounds;
-import android.transition.Fade;
-import android.transition.TransitionManager;
-import android.transition.TransitionSet;
-import android.view.animation.AlphaAnimation;
-import android.view.animation.AnimationSet;
-import android.view.animation.TranslateAnimation;
-import android.view.animation.PathInterpolator;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
@@ -31,7 +30,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.ViewFlipper;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -58,7 +56,20 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout root;
     private View statusBarSpacer;
     private Toolbar toolbar;
-    private ViewFlipper pages;
+    private PageNavigator.Host pages;
+    private PageNavigator navigator;
+    private DisclosureMotion disclosure;
+    private boolean resumed, bindPending, refreshing;
+    private long refreshRequest;
+    private HelperApplication.RefreshTask refreshTask;
+    private final Runnable bindFrame = () -> {
+        bindPending = false;
+        if (resumed && !isDestroyed()) refresh();
+    };
+    private final Map<String, View> logViews = new LinkedHashMap<>();
+    private Runnable restoreLogAnchor;
+    private OneShotPreDrawListener pendingLogLayout;
+    private long logRevision;
     private final List<LinearLayout> pageContents = new ArrayList<>();
     private OnBackPressedCallback pageBack;
     private int currentPage;
@@ -66,7 +77,6 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout statusDetails;
     private TextView recentReport;
     private boolean binding;
-    private boolean pageShown;
     private final List<ScrollView> pageScrolls = new ArrayList<>();
     private String rawDetails;
     private String rawEvents = "";
@@ -115,19 +125,46 @@ public final class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         visible = this;
+        resumed = true;
         refresh();
     }
 
     @Override
-    protected void onDestroy() {
-        if (refreshAnimator != null) refreshAnimator.cancel();
+    protected void onStop() {
+        resumed = false;
         if (visible == this) visible = null;
+        refreshRequest++;
+        if (refreshTask != null) { refreshTask.cancel(); refreshTask = null; }
+        refreshing = false;
+        stopRefreshFeedback();
+        root.removeCallbacks(bindFrame);
+        bindPending = false;
+        navigator.settle();
+        disclosure.finish();
+        for (View view : logViews.values()) { view.animate().cancel(); view.setAlpha(1f); }
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (navigator != null) navigator.dispose();
+        if (disclosure != null) disclosure.dispose();
+        stopRefreshFeedback();
+        if (refreshTask != null) { refreshTask.cancel(); refreshTask = null; }
+        if (visible == this) visible = null;
+        root.removeCallbacks(bindFrame);
+        if (pendingLogLayout != null) { pendingLogLayout.removeListener(); pendingLogLayout = null; }
+        for (View view : logViews.values()) view.animate().cancel();
         super.onDestroy();
     }
 
     static void refreshVisible() {
         MainActivity activity = visible;
-        if (activity != null) activity.runOnUiThread(activity::refresh);
+        if (activity != null) activity.runOnUiThread(() -> {
+            if (visible != activity || !activity.resumed || activity.isDestroyed() || activity.bindPending) return;
+            activity.bindPending = true;
+            activity.root.postOnAnimation(activity.bindFrame);
+        });
     }
 
     private void build() {
@@ -153,19 +190,29 @@ public final class MainActivity extends AppCompatActivity {
         toolbar.setOnMenuItemClickListener(this::onToolbarAction);
         root.addView(toolbar, new LinearLayout.LayoutParams(-1, dimension(R.dimen.pcph_toolbar_height)));
 
-        pages = new ViewFlipper(this);
+        pages = new PageNavigator.Host(this);
         root.addView(pages, new LinearLayout.LayoutParams(-1, 0, 1f));
         buildHome(newPage());
         buildLogs(newPage());
         buildDevice(newPage());
         buildRaw(newPage());
+        navigator = new PageNavigator(pages, pageScrolls, this::bindPageChrome);
         pageBack = new OnBackPressedCallback(false) {
-            @Override public void handleOnBackPressed() { navigateUp(); }
+            @Override public void handleOnBackStarted(@NonNull BackEventCompat event) {
+                navigator.beginBack(event.getSwipeEdge() == BackEventCompat.EDGE_LEFT);
+            }
+            @Override public void handleOnBackProgressed(@NonNull BackEventCompat event) {
+                navigator.progressBack(event.getProgress());
+            }
+            @Override public void handleOnBackCancelled() { navigator.cancelBack(); }
+            @Override public void handleOnBackPressed() {
+                if (!navigator.completeBack()) navigateUp();
+            }
         };
         getOnBackPressedDispatcher().addCallback(this, pageBack);
         setContentView(root);
         applyWindowInsets();
-        showPage(currentPage);
+        navigator.show(currentPage, false);
 
         entry.setChecked(AppConfig.prefs().getBoolean(HelperApplication.ENTRY, true));
         third.setChecked(AppConfig.prefs().getBoolean(HelperApplication.THIRD, true));
@@ -184,11 +231,12 @@ public final class MainActivity extends AppCompatActivity {
         pageScrolls.add(scroll);
         scroll.setScrollbarFadingEnabled(true);
         scroll.setClipToPadding(false);
+        scroll.setBackgroundColor(getColor(R.color.pcph_background));
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(0, 0, 0, dimension(R.dimen.pcph_page_bottom));
         scroll.addView(page, new ScrollView.LayoutParams(-1, -2));
-        pages.addView(scroll, new ViewFlipper.LayoutParams(-1, -1));
+        pages.addView(scroll, new android.widget.FrameLayout.LayoutParams(-1, -1));
         pageContents.add(page);
         return page;
     }
@@ -219,6 +267,7 @@ public final class MainActivity extends AppCompatActivity {
         scope = infoRow(statusDetails, "系统设置作用范围");
         hook = infoRow(statusDetails, "克隆功能检查");
         recentReport = infoRow(statusDetails, "最近回报");
+        disclosure = new DisclosureMotion(statusDetails, statusArrow);
         updateStatusDisclosure(false);
 
         LinearLayout diagnostics = section(page, "诊断");
@@ -254,20 +303,11 @@ public final class MainActivity extends AppCompatActivity {
         deviceDetails.setTextIsSelectable(true);
     }
 
-    private void showPage(int page) {
-        int next = page >= HOME && page <= RAW ? page : HOME;
-        boolean changing = pageShown && next != currentPage;
-        int direction = next > currentPage ? 1 : -1;
-        if (changing && animationsEnabled()) {
-            pages.setInAnimation(pageAnimation(true, direction));
-            pages.setOutAnimation(pageAnimation(false, direction));
-        } else {
-            pages.setInAnimation(null);
-            pages.setOutAnimation(null);
-        }
-        currentPage = next;
-        pages.setDisplayedChild(currentPage);
-        pageShown = true;
+    private void showPage(int page) { navigator.show(page, true); }
+
+    private void bindPageChrome(int page) {
+        if (refreshAnimator != null) stopRefreshFeedback();
+        currentPage = page;
         toolbar.setTitle(currentPage == HOME ? getString(R.string.helper_title)
                 : currentPage == LOGS ? "运行日志" : currentPage == DEVICE ? "设备与诊断" : "原始诊断信息");
         toolbar.setNavigationIcon(currentPage == HOME ? null : getDrawable(R.drawable.pcph_ic_back));
@@ -288,6 +328,7 @@ public final class MainActivity extends AppCompatActivity {
             refreshButton.setOnClickListener(v -> refreshWithFeedback());
             refreshItem.setActionView(refreshButton);
             refreshAction = refreshButton;
+            if (refreshing) startRefreshFeedback();
             menu.add(Menu.NONE, ABOUT, Menu.NONE, "应用信息");
         } else if (currentPage == LOGS) {
             menu.add(Menu.NONE, EXPORT, Menu.NONE, "导出日志");
@@ -301,9 +342,10 @@ public final class MainActivity extends AppCompatActivity {
         toolbar.sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
     }
 
-    private void navigateUp() { showPage(currentPage == RAW ? DEVICE : HOME); }
+    private void navigateUp() { showPage(PageNavigator.parent(currentPage)); }
 
     private boolean onToolbarAction(MenuItem item) {
+        if (navigator.seeking()) return true;
         switch (item.getItemId()) {
             case REFRESH: refreshWithFeedback(); return true;
             case EXPORT: exportLogs(); return true;
@@ -327,56 +369,47 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    private boolean animationsEnabled() {
-        return ValueAnimator.areAnimatorsEnabled()
-                && Settings.Global.getFloat(getContentResolver(), Settings.Global.TRANSITION_ANIMATION_SCALE, 1f) > 0f;
+    private void startRefreshFeedback() {
+        if (refreshAction == null || currentPage != HOME) return;
+        refreshAction.setEnabled(false);
+        ViewCompat.setStateDescription(refreshAction, getString(R.string.refreshing_status));
+        if (!ClassicMotion.enabled(this)) return;
+        refreshAnimator = ObjectAnimator.ofFloat(refreshAction, View.ROTATION, 0f, 360f);
+        refreshAnimator.setDuration(ClassicMotion.duration(this, R.integer.pcph_refresh_duration));
+        refreshAnimator.setInterpolator(new android.view.animation.LinearInterpolator());
+        refreshAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        refreshAnimator.start();
     }
 
-    private int motionDuration() { return getResources().getInteger(R.integer.pcph_motion_duration); }
-
-    private android.view.animation.Animation pageAnimation(boolean entering, int direction) {
-        AnimationSet animation = new AnimationSet(true);
-        animation.addAnimation(new AlphaAnimation(entering ? 0f : 1f, entering ? 1f : 0f));
-        int distance = dimension(R.dimen.pcph_page_motion_distance) * direction;
-        animation.addAnimation(new TranslateAnimation(entering ? distance : 0, entering ? 0 : -distance, 0, 0));
-        animation.setDuration(Math.round(motionDuration() * Settings.Global.getFloat(
-                getContentResolver(), Settings.Global.TRANSITION_ANIMATION_SCALE, 1f)));
-        animation.setInterpolator(new PathInterpolator(.4f, 0f, .2f, 1f));
-        return animation;
+    private void stopRefreshFeedback() {
+        if (refreshAnimator != null) { refreshAnimator.cancel(); refreshAnimator = null; }
+        if (refreshAction != null) {
+            refreshAction.setRotation(0f);
+            refreshAction.setEnabled(true);
+            ViewCompat.setStateDescription(refreshAction, null);
+        }
     }
 
     private void refreshWithFeedback() {
-        if (refreshAnimator != null && refreshAnimator.isRunning()) return;
-        if (refreshAction != null && animationsEnabled()) {
-            refreshAnimator = ObjectAnimator.ofFloat(refreshAction, View.ROTATION, 0f, 360f);
-            refreshAnimator.setDuration(getResources().getInteger(R.integer.pcph_refresh_duration));
-            refreshAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
-            refreshAnimator.start();
-        }
-        refresh();
-        showFeedback(getString(R.string.status_refreshed), Snackbar.LENGTH_SHORT);
+        if (refreshing || navigator.seeking()) return;
+        refreshing = true;
+        long request = ++refreshRequest;
+        startRefreshFeedback();
+        WeakReference<MainActivity> reference = new WeakReference<>(this);
+        refreshTask = HelperApplication.refreshState(success -> {
+            MainActivity activity = reference.get();
+            if (activity == null || !activity.resumed || activity.isDestroyed() || request != activity.refreshRequest) return;
+            activity.refreshing = false;
+            activity.refreshTask = null;
+            activity.stopRefreshFeedback();
+            activity.refresh();
+            activity.showFeedback(activity.getString(success ? R.string.status_refreshed : R.string.status_refresh_failed),
+                    Snackbar.LENGTH_SHORT);
+        });
     }
 
     private void updateStatusDisclosure(boolean animate) {
-        if (statusDetails == null) return;
-        boolean motion = animate && animationsEnabled() && ViewCompat.isLaidOut(statusDetails.getRootView());
-        // ChangeBounds animates the containing block and following rows together; Fade only targets details.
-        TransitionManager.endTransitions(pageContents.get(HOME));
-        if (motion) {
-            TransitionSet transition = new TransitionSet().setOrdering(TransitionSet.ORDERING_TOGETHER);
-            transition.addTransition(new ChangeBounds());
-            transition.addTransition(new Fade().addTarget(statusDetails));
-            transition.setDuration(motionDuration());
-            transition.setInterpolator(new PathInterpolator(.4f, 0f, .2f, 1f));
-            TransitionManager.beginDelayedTransition(pageContents.get(HOME), transition);
-        }
-        statusDetails.setVisibility(statusExpanded ? View.VISIBLE : View.GONE);
-        statusArrow.animate().cancel();
-        float rotation = statusExpanded ? 180f : 0f;
-        if (motion) statusArrow.animate().rotation(rotation).setDuration(motionDuration())
-                .setInterpolator(new PathInterpolator(.4f, 0f, .2f, 1f)).start();
-        else statusArrow.setRotation(rotation);
-        ViewCompat.setStateDescription((View) statusArrow.getParent(), statusExpanded ? "已展开" : "已收起");
+        if (disclosure != null) disclosure.setExpanded(statusExpanded, animate);
     }
 
     private void configureEdgeToEdge() {
@@ -556,15 +589,14 @@ public final class MainActivity extends AppCompatActivity {
         if (framework == null) return;
         installed.setText("已安装 · v" + appVersionName());
         framework.setText(HelperApplication.service == null ? "等待连接" : "已连接");
-        scope.setText(HelperApplication.service == null ? "尚未确认" : HelperApplication.scoped ? "已启用" : "未启用");
+        scope.setText(!HelperApplication.metadataReady ? "尚未确认" : HelperApplication.scoped ? "已启用" : "未启用");
         List<String> rows = logs();
         if (!rows.equals(formattedRows)) {
             rawEvents = formatRawLogs(rows);
             formattedRows = new ArrayList<>(rows);
         }
         hook.setText(hookSummary(rows));
-        boolean delivered = HelperApplication.service != null && HelperApplication.sync();
-        config.setText(getString(delivered ? R.string.config_wait_settings : R.string.config_wait_connection));
+        config.setText(getString(configMessage()));
         binding = true;
         android.content.SharedPreferences preferences = AppConfig.prefs();
         entry.setChecked(preferences.getBoolean(HelperApplication.ENTRY, true));
@@ -591,7 +623,7 @@ public final class MainActivity extends AppCompatActivity {
                 + "\n\n最近回报时间\n" + lastReport
                 + "\n\n运行框架\n" + HelperApplication.framework
                 + "\n\n系统设置作用范围\n" + (HelperApplication.scoped ? "com.android.settings：已启用"
-                    : HelperApplication.service == null ? "尚未确认" : "com.android.settings：未启用")
+                    : !HelperApplication.metadataReady ? "尚未确认" : "com.android.settings：未启用")
                 + "\n\nHook 状态\n" + hookDiagnosticStatus(rows)
                 + "\n\n原始事件记录\n" + (rows.isEmpty() ? "暂无运行日志" : rawEvents);
         if (!details.equals(rawDetails)) {
@@ -603,6 +635,7 @@ public final class MainActivity extends AppCompatActivity {
                 + "\n构建版本：" + deviceBuild.getText() + "\n运行框架：" + frameworkVersion.getText()
                 + "\n系统设置回报：" + deviceReport.getText() + "\nHook 状态：" + diagnosticHook.getText();
         renderLogs(rows);
+        disclosure.contentChanged();
     }
 
     private String eventSummary(String row) {
@@ -612,54 +645,112 @@ public final class MainActivity extends AppCompatActivity {
 
     private void renderLogs(List<String> rows) {
         if (rows.equals(renderedLogs)) return;
+        boolean initial = renderedLogs == null;
         renderedLogs = new ArrayList<>(rows);
+        List<LogProjection.Item> items = LogProjection.project(rows);
+        Set<String> retained = new HashSet<>();
+        for (LogProjection.Item item : items) retained.add(item.key);
         ScrollView scroll = pageScrolls.get(LOGS);
-        int scrollY = scroll.getScrollY();
-        logEntries.removeAllViews();
-        scroll.post(() -> scroll.scrollTo(0, scrollY));
-        if (rows.isEmpty()) {
-            TextView empty = bodyText(logEntries, false);
-            empty.setText("暂无运行日志");
-            empty.setPadding(dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_icon_size), dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_icon_size));
-            return;
-        }
-        String lastDate = "";
-        for (int i = rows.size() - 1; i >= 0; i--) {
-            String raw = rows.get(i);
-            String timestamp = logFields(raw)[0];
-            String date = UiPresentation.logDate(timestamp);
-            if (!date.equals(lastDate)) {
-                TextView heading = bodyText(logEntries, false);
-                heading.setTextAppearance(R.style.TextAppearance_CloneHelper_Caption);
-                heading.setText(date);
-                heading.setMinHeight(dimension(R.dimen.pcph_log_date_height));
-                heading.setGravity(Gravity.CENTER_VERTICAL);
-                heading.setPadding(dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_space_8), dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_space_4));
-                ViewCompat.setAccessibilityHeading(heading, true);
-                lastDate = date;
+        int y = scroll.getScrollY();
+        String anchorKey = null;
+        int anchorOffset = 0;
+        if (y > 0) {
+            for (int i = 0; i < logEntries.getChildCount(); i++) {
+                View child = logEntries.getChildAt(i);
+                if (child.getBottom() > y && retained.contains((String) child.getTag())) {
+                    anchorKey = (String) child.getTag(); anchorOffset = y - child.getTop(); break;
+                }
             }
-            LinearLayout line = new LinearLayout(this);
-            line.setOrientation(LinearLayout.HORIZONTAL);
-            line.setGravity(Gravity.TOP);
-            line.setBaselineAligned(true);
-            line.setMinimumHeight(dimension(R.dimen.pcph_switch_row_height));
-            line.setPadding(dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_log_row_padding), dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_log_row_padding));
-            TextView time = new TextView(this);
-            time.setTextAppearance(R.style.TextAppearance_CloneHelper_Time);
-            time.setText(UiPresentation.logTime(timestamp));
-            int timeWidth = Math.max(dimension(R.dimen.pcph_log_text_offset), (int) Math.ceil(time.getPaint().measureText(time.getText().toString())) + dimension(R.dimen.pcph_page_horizontal));
-            line.addView(time, new LinearLayout.LayoutParams(timeWidth, -2));
-            TextView message = new TextView(this);
-            message.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
-            message.setText(eventSummary(raw));
-            line.addView(message, new LinearLayout.LayoutParams(0, -2, 1f));
-            line.setBackground(selectableItemBackground());
-            line.setClickable(true);
-            line.setFocusable(true);
-            line.setOnClickListener(v -> showLogDetail(raw));
-            logEntries.addView(line, matchWrap());
-            divider(logEntries, dimension(R.dimen.pcph_page_horizontal) + timeWidth);
         }
+        for (String key : new ArrayList<>(logViews.keySet())) {
+            if (!retained.contains(key)) {
+                View removed = logViews.remove(key);
+                removed.animate().cancel(); logEntries.removeView(removed);
+            }
+        }
+        List<View> added = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            LogProjection.Item item = items.get(i);
+            View child = logViews.get(item.key);
+            if (child == null) {
+                child = createLogItem(item);
+                child.setTag(item.key); logViews.put(item.key, child);
+                if (item.kind == LogProjection.Kind.EVENT) added.add(child);
+            }
+            if (logEntries.indexOfChild(child) != i) {
+                if (child.getParent() != null) logEntries.removeView(child);
+                logEntries.addView(child, i, matchWrap());
+            }
+        }
+        if (initial) return; // Allow Activity/ScrollView restoration to own the initial scroll position.
+        final String key = anchorKey;
+        final int offset = anchorOffset;
+        final long revision = ++logRevision;
+        if (pendingLogLayout != null) pendingLogLayout.removeListener();
+        restoreLogAnchor = () -> {
+            if (isDestroyed() || revision != logRevision) return;
+            View anchor = key == null ? null : logViews.get(key);
+            scroll.scrollTo(0, y == 0 ? 0 : anchor == null ? y : anchor.getTop() + offset);
+            if (!initial && resumed && currentPage == LOGS && !navigator.busy() && ClassicMotion.enabled(this)) {
+                for (View child : added) {
+                    if (child.getTop() < scroll.getScrollY() + scroll.getHeight() && child.getBottom() > scroll.getScrollY()) {
+                        child.setAlpha(0f);
+                        child.animate().alpha(1f).setDuration(ClassicMotion.duration(this,
+                                R.integer.pcph_log_enter_duration)).setInterpolator(ClassicMotion.EASING).start();
+                    }
+                }
+            }
+            restoreLogAnchor = null;
+            pendingLogLayout = null;
+        };
+        pendingLogLayout = OneShotPreDrawListener.add(scroll, restoreLogAnchor);
+    }
+
+    private View createLogItem(LogProjection.Item item) {
+        if (item.kind != LogProjection.Kind.EVENT) {
+            TextView text = new TextView(this);
+            text.setTextAppearance(item.kind == LogProjection.Kind.DATE
+                    ? R.style.TextAppearance_CloneHelper_Caption : R.style.TextAppearance_CloneHelper_Body);
+            text.setText(item.kind == LogProjection.Kind.DATE ? item.text : "暂无运行日志");
+            if (item.kind == LogProjection.Kind.DATE) {
+                text.setMinHeight(dimension(R.dimen.pcph_log_date_height));
+                text.setGravity(Gravity.CENTER_VERTICAL);
+                text.setPadding(dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_space_8),
+                        dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_space_4));
+                ViewCompat.setAccessibilityHeading(text, true);
+            } else {
+                text.setPadding(dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_icon_size),
+                        dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_icon_size));
+            }
+            return text;
+        }
+        String raw = item.text;
+        String timestamp = logFields(raw)[0];
+        LinearLayout wrapper = new LinearLayout(this);
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout line = new LinearLayout(this);
+        line.setOrientation(LinearLayout.HORIZONTAL);
+        line.setGravity(Gravity.TOP);
+        line.setBaselineAligned(true);
+        line.setMinimumHeight(dimension(R.dimen.pcph_switch_row_height));
+        line.setPadding(dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_log_row_padding),
+                dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_log_row_padding));
+        TextView time = new TextView(this);
+        time.setTextAppearance(R.style.TextAppearance_CloneHelper_Time);
+        time.setText(UiPresentation.logTime(timestamp));
+        int timeWidth = Math.max(dimension(R.dimen.pcph_log_text_offset),
+                (int) Math.ceil(time.getPaint().measureText(time.getText().toString())) + dimension(R.dimen.pcph_page_horizontal));
+        line.addView(time, new LinearLayout.LayoutParams(timeWidth, -2));
+        TextView message = new TextView(this);
+        message.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
+        message.setText(eventSummary(raw));
+        line.addView(message, new LinearLayout.LayoutParams(0, -2, 1f));
+        line.setBackground(selectableItemBackground());
+        line.setClickable(true); line.setFocusable(true);
+        line.setOnClickListener(v -> showLogDetail(raw));
+        wrapper.addView(line, matchWrap());
+        divider(wrapper, dimension(R.dimen.pcph_page_horizontal) + timeWidth);
+        return wrapper;
     }
 
     private void showLogDetail(String row) {
@@ -790,11 +881,20 @@ public final class MainActivity extends AppCompatActivity {
         return styled;
     }
 
+    private int configMessage() {
+        switch (HelperApplication.syncState) {
+            case SENDING: return R.string.config_sending;
+            case SENT: return R.string.config_wait_settings;
+            case FAILED: return R.string.config_sync_failed;
+            default: return R.string.config_wait_connection;
+        }
+    }
+
     private void save(String key, boolean value) {
         AppConfig.prefs().edit().putBoolean(key, value).apply();
-        boolean sent = HelperApplication.sync();
-        config.setText(getString(sent ? R.string.config_wait_settings : R.string.config_wait_connection));
-        showFeedback("配置已保存", Snackbar.LENGTH_LONG);
+        HelperApplication.requestSync();
+        config.setText(getString(configMessage()));
+        showFeedback("设置已保存", Snackbar.LENGTH_SHORT);
     }
 
     private void openClonePage() {

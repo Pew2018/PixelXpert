@@ -29,22 +29,14 @@ or PixelXpert `app` sources changed.
 
 ## Animation and behavior
 
-Previously disclosure immediately changed visibility/rotation and ViewFlipper
-changed pages without transitions. Now ChangeBounds/Fade moves the status block
-and following rows together, the arrow rotates in sync, subpages use an 8dp
-fade/translation, and refresh briefly rotates without delaying real work.
-System animator enablement and transition scale are respected. Fast repeated
-page/disclosure actions finish or replace transitions rather than queueing work.
-The original back dispatcher and page hierarchy remain. No new predictive-back
-preview implementation is claimed; the existing internal callback only commits
-navigation when back is completed.
+The subsequent animation revision replaces the first-pass ViewFlipper and
+ChangeBounds/Fade behavior with explicit page/disclosure controllers and
+asynchronous UI scheduling. See [ANIMATION-VERIFICATION.md](ANIMATION-VERIFICATION.md)
+for current behavior, predictive-back progress handling, lifecycle boundaries,
+serial remote synchronization and incremental log verification.
 
-Binding switches during refresh cannot re-enter save listeners. The two toggles
-are **independent in the existing Hook code**, so both remain configurable:
-`open_entry` controls availability, `allow_third_party` controls candidates.
-No new dependency is invented and neither value is overwritten by the other.
-Configuration captions indicate waiting/unconfirmed application, never proof
-that the settings process applied the saved values.
+The two toggles remain independent as in the Hook implementation. Saved local
+values, delivery to the framework and actual application remain distinct states.
 
 ## Reproducible device comparison
 

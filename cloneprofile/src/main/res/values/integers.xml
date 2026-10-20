@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <integer name="pcph_motion_duration">200</integer>
-    <integer name="pcph_refresh_duration">320</integer>
+    <integer name="pcph_refresh_duration">700</integer>
+    <integer name="pcph_navigation_duration">220</integer>
+    <integer name="pcph_log_enter_duration">160</integer>
 </resources>

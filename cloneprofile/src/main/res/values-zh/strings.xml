@@ -8,4 +8,8 @@
     <string name="config_wait_connection">配置待框架连接后发送；尚未确认生效</string>
     <string name="refresh_status">刷新状态</string>
     <string name="status_refreshed">状态已刷新</string>
+    <string name="config_sending">设置已保存，正在发送至框架</string>
+    <string name="config_sync_failed">设置已保存，发送失败；重新连接或保存后重试</string>
+    <string name="refreshing_status">正在刷新状态</string>
+    <string name="status_refresh_failed">框架状态刷新失败</string>
 </resources>
