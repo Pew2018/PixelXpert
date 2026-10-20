@@ -17,6 +17,7 @@
         <item name="android:windowActionModeOverlay">true</item>
         <item name="fontFamily">sans-serif</item>
         <item name="android:fontFamily">sans-serif</item>
+        <item name="colorControlHighlight">@color/pcph_ripple</item>
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.CloneHelper.Dialog</item>
         <item name="snackbarStyle">@style/Widget.CloneHelper.Snackbar</item>
     </style>
@@ -30,7 +31,7 @@
     </style>
 
     <style name="TextAppearance.CloneHelper.SectionTitle" parent="TextAppearance.MaterialComponents.Subtitle1">
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">13sp</item>
         <item name="android:textStyle">normal</item>
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:textColor">@color/pcph_accent</item>
@@ -45,7 +46,7 @@
     </style>
 
     <style name="TextAppearance.CloneHelper.Secondary" parent="TextAppearance.MaterialComponents.Body2">
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">13sp</item>
         <item name="android:textStyle">normal</item>
         <item name="android:textColor">@color/pcph_text_secondary</item>
         <item name="android:letterSpacing">0</item>
@@ -58,14 +59,14 @@
     </style>
 
     <style name="TextAppearance.CloneHelper.Caption" parent="TextAppearance.MaterialComponents.Caption">
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">13sp</item>
         <item name="android:textColor">@color/pcph_text_secondary</item>
         <item name="android:letterSpacing">0</item>
     </style>
 
     <style name="TextAppearance.CloneHelper.Diagnostic" parent="TextAppearance.MaterialComponents.Body2">
-        <item name="android:textSize">12sp</item>
-        <item name="android:textColor">@color/pcph_text_secondary</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/pcph_text_primary</item>
         <item name="android:fontFamily">monospace</item>
     </style>
 
@@ -102,6 +103,7 @@
         <item name="android:letterSpacing">0</item>
     </style>
     <style name="Widget.CloneHelper.DialogButton" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+        <item name="android:minHeight">@dimen/pcph_touch_target</item>
         <item name="android:textSize">14sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:textColor">@color/pcph_accent</item>
@@ -111,14 +113,23 @@
         <item name="backgroundTint">@color/pcph_snackbar_background</item>
     </style>
     <style name="ThemeOverlay.CloneHelper.Popup" parent="ThemeOverlay.MaterialComponents">
+        <item name="listPreferredItemHeightSmall">@dimen/pcph_touch_target</item>
+        <item name="listPreferredItemPaddingLeft">@dimen/pcph_page_horizontal</item>
+        <item name="listPreferredItemPaddingRight">@dimen/pcph_page_horizontal</item>
         <item name="android:colorBackground">@color/pcph_surface</item>
         <item name="android:textColorPrimary">@color/pcph_text_primary</item>
         <item name="android:textColorSecondary">@color/pcph_text_secondary</item>
     </style>
     <style name="TextAppearance.CloneHelper.Time" parent="TextAppearance.MaterialComponents.Caption">
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">13sp</item>
         <item name="android:textColor">@color/pcph_text_secondary</item>
         <item name="android:fontFamily">monospace</item>
+    </style>
+    <style name="TextAppearance.CloneHelper.DetailTitle" parent="TextAppearance.CloneHelper.Primary">
+        <item name="android:textSize">14sp</item>
+    </style>
+    <style name="TextAppearance.CloneHelper.RawLabel" parent="TextAppearance.CloneHelper.Secondary">
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 </resources>
 
