@@ -10,60 +10,74 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.ViewFlipper;
 
+import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
-import androidx.appcompat.widget.Toolbar;
 
-import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public final class MainActivity extends AppCompatActivity {
+    private static final int HOME = 0, LOGS = 1, DEVICE = 2, RAW = 3;
+    private static final int REFRESH = 1, EXPORT = 2, CLEAR = 3, COPY = 4, ABOUT = 5;
     private static volatile MainActivity visible;
-
     private LinearLayout root;
     private View statusBarSpacer;
-    private TextView installed;
-    private TextView framework;
-    private TextView scope;
-    private TextView hook;
-    private TextView config;
-    private TextView logText;
-    private TextView device;
-    private TextView deviceBuild;
-    private TextView deviceReport;
-    private TextView deviceDetails;
-    private MaterialButton expandLogsButton;
-    private MaterialButton detailsButton;
-    private SwitchMaterial entry;
-    private SwitchMaterial third;
-    private boolean expanded;
-    private boolean detailsExpanded;
+    private Toolbar toolbar;
+    private ViewFlipper pages;
+    private final List<LinearLayout> pageContents = new ArrayList<>();
+    private OnBackPressedCallback pageBack;
+    private int currentPage;
+    private boolean statusExpanded;
+    private LinearLayout statusDetails;
+    private LinearLayout logEntries;
+    private ImageView statusArrow;
+    private TextView installed, framework, scope, hook, config;
+    private TextView device, deviceBuild, deviceReport, deviceDetails;
+    private TextView androidVersion, frameworkVersion, diagnosticHook;
+    private TextView connectionSummary, logsSummary, deviceSummary;
+    private SwitchMaterial entry, third;
+    private List<String> renderedLogs;
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         AppConfig.init(this);
+        if (state != null) {
+            currentPage = state.getInt("page", HOME);
+            statusExpanded = state.getBoolean("statusExpanded", false);
+        }
         visible = this;
         build();
         refresh();
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle state) {
+        state.putInt("page", currentPage);
+        state.putBoolean("statusExpanded", statusExpanded);
+        super.onSaveInstanceState(state);
     }
 
     @Override
@@ -86,101 +100,164 @@ public final class MainActivity extends AppCompatActivity {
 
     private void build() {
         configureEdgeToEdge();
-
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(getColor(R.color.pcph_background));
-
         statusBarSpacer = new View(this);
         statusBarSpacer.setBackgroundColor(getColor(R.color.pcph_status_bar));
-        root.addView(statusBarSpacer, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0));
+        root.addView(statusBarSpacer, new LinearLayout.LayoutParams(-1, 0));
 
-        Toolbar bar = new Toolbar(this);
-        bar.setTitle(R.string.app_name);
-        bar.setTitleTextColor(getColor(R.color.pcph_text_on_dark));
-        bar.setTitleTextAppearance(this, R.style.TextAppearance_CloneHelper_Toolbar);
-        bar.setContentInsetsRelative(dimension(R.dimen.pcph_page_horizontal), dimension(R.dimen.pcph_page_horizontal));
-        bar.setBackgroundColor(getColor(R.color.pcph_toolbar));
-        bar.setElevation(dimension(R.dimen.pcph_toolbar_elevation));
-        root.addView(bar, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dimension(R.dimen.pcph_toolbar_height)));
+        toolbar = new Toolbar(this);
+        toolbar.setTitleTextColor(getColor(R.color.pcph_text_on_dark));
+        toolbar.setTitleTextAppearance(this, R.style.TextAppearance_CloneHelper_Toolbar);
+        toolbar.setContentInsetsRelative(dp(16), dp(16));
+        toolbar.setBackgroundColor(getColor(R.color.pcph_toolbar));
+        toolbar.setElevation(dimension(R.dimen.pcph_toolbar_elevation));
+        toolbar.setPopupTheme(R.style.ThemeOverlay_CloneHelper_Popup);
+        toolbar.setNavigationOnClickListener(v -> navigateUp());
+        toolbar.setOnMenuItemClickListener(this::onToolbarAction);
+        root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(56)));
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setClipToPadding(false);
-        scroll.setBackgroundColor(getColor(R.color.pcph_background));
-
-        LinearLayout page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(
-                0,
-                dimension(R.dimen.pcph_page_top),
-                0,
-                dimension(R.dimen.pcph_page_bottom));
-        scroll.addView(page, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
-        root.addView(scroll, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-
-        LinearLayout statusSection = section(page, "运行状态");
-        installed = infoRow(statusSection, "模块 APK");
-        framework = infoRow(statusSection, "运行框架");
-        scope = infoRow(statusSection, "作用范围");
-        hook = infoRow(statusSection, "系统设置");
-        addActionRow(statusSection, button -> flatButton(button, "刷新状态", v -> refresh()));
-
-        LinearLayout cloneSection = section(page, "克隆功能");
-        entry = switchRow(cloneSection, "启用系统克隆入口");
-        third = switchRow(cloneSection, "允许克隆第三方应用");
-        addSectionCaption(cloneSection, "配置状态");
-        config = bodyText(cloneSection, false);
-        config.setTextAppearance(R.style.TextAppearance_CloneHelper_Secondary);
-        navigationRow(cloneSection, "打开系统克隆设置", v -> openClonePage());
-
-        LinearLayout logsSection = section(page, "运行日志");
-        logText = bodyText(logsSection, false);
-        LinearLayout logActions = new LinearLayout(this);
-        logActions.setOrientation(LinearLayout.HORIZONTAL);
-        logActions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        LinearLayout expandActions = new LinearLayout(this);
-        expandActions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        logsSection.addView(expandActions, matchWrap());
-        flatButton(expandActions, "展开更多", v -> {
-            expanded = !expanded;
-            refresh();
-        });
-        expandLogsButton = (MaterialButton) expandActions.getChildAt(0);
-        flatButton(logActions, "导出诊断", v -> exportLogs());
-        flatButton(logActions, "清除", v -> clearLogs());
-        logsSection.addView(logActions, matchWrap());
-
-        LinearLayout diagnosticsSection = section(page, "设备与诊断");
-        device = bodyText(diagnosticsSection, false);
-        device.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
-        deviceBuild = infoRow(diagnosticsSection, "构建");
-        deviceReport = infoRow(diagnosticsSection, "Settings 回报");
-        deviceDetails = bodyText(diagnosticsSection, true);
-        deviceDetails.setTextIsSelectable(true);
-        deviceDetails.setVisibility(View.GONE);
-        LinearLayout diagnosticActions = new LinearLayout(this);
-        diagnosticActions.setOrientation(LinearLayout.VERTICAL);
-        diagnosticActions.setGravity(Gravity.END);
-        flatButton(diagnosticActions, "查看详细信息", v -> {
-            detailsExpanded = !detailsExpanded;
-            deviceDetails.setVisibility(detailsExpanded ? View.VISIBLE : View.GONE);
-            detailsButton.setText(detailsExpanded ? "收起" : "查看详细信息");
-        });
-        detailsButton = (MaterialButton) diagnosticActions.getChildAt(0);
-        flatButton(diagnosticActions, "复制诊断信息", v -> copyDiagnostics());
-        diagnosticsSection.addView(diagnosticActions, matchWrap());
-
+        pages = new ViewFlipper(this);
+        root.addView(pages, new LinearLayout.LayoutParams(-1, 0, 1f));
+        buildHome(newPage());
+        buildLogs(newPage());
+        buildDevice(newPage());
+        buildRaw(newPage());
+        pageBack = new OnBackPressedCallback(false) {
+            @Override public void handleOnBackPressed() { navigateUp(); }
+        };
+        getOnBackPressedDispatcher().addCallback(this, pageBack);
         setContentView(root);
-        applyWindowInsets(root, page);
+        applyWindowInsets();
+        showPage(currentPage);
+
         entry.setChecked(AppConfig.prefs().getBoolean(HelperApplication.ENTRY, true));
         third.setChecked(AppConfig.prefs().getBoolean(HelperApplication.THIRD, true));
         entry.setOnCheckedChangeListener((button, checked) -> save(HelperApplication.ENTRY, checked));
         third.setOnCheckedChangeListener((button, checked) -> save(HelperApplication.THIRD, checked));
+    }
+
+    private LinearLayout newPage() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setClipToPadding(false);
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(0, 0, 0, dp(24));
+        scroll.addView(page, new ScrollView.LayoutParams(-1, -2));
+        pages.addView(scroll, new ViewFlipper.LayoutParams(-1, -1));
+        pageContents.add(page);
+        return page;
+    }
+
+    private void buildHome(LinearLayout page) {
+        LinearLayout functions = section(page, "克隆功能");
+        entry = switchRow(functions, "启用系统克隆入口");
+        third = switchRow(functions, "允许克隆第三方应用");
+        config = bodyText(functions, false);
+        config.setTextAppearance(R.style.TextAppearance_CloneHelper_Secondary);
+        config.setPadding(dp(16), dp(8), dp(16), dp(12));
+        settingRow(functions, "系统克隆设置", "管理克隆应用", v -> openClonePage());
+
+        LinearLayout status = section(page, "运行状态");
+        SettingRow summary = settingRow(status, "系统设置连接", "", v -> {
+            statusExpanded = !statusExpanded;
+            updateStatusDisclosure();
+        });
+        connectionSummary = summary.summary;
+        statusArrow = summary.arrow;
+        statusDetails = new LinearLayout(this);
+        statusDetails.setOrientation(LinearLayout.VERTICAL);
+        status.addView(statusDetails, matchWrap());
+        installed = infoRow(statusDetails, "模块");
+        framework = infoRow(statusDetails, "运行框架连接");
+        scope = infoRow(statusDetails, "系统设置作用范围");
+        hook = infoRow(statusDetails, "克隆功能检查");
+        updateStatusDisclosure();
+
+        LinearLayout diagnostics = section(page, "诊断");
+        logsSummary = settingRow(diagnostics, "运行日志", "暂无运行日志", v -> showPage(LOGS)).summary;
+        deviceSummary = settingRow(diagnostics, "设备与诊断", "", v -> showPage(DEVICE)).summary;
+    }
+
+    private void buildLogs(LinearLayout page) {
+        logEntries = new LinearLayout(this);
+        logEntries.setOrientation(LinearLayout.VERTICAL);
+        page.addView(logEntries, matchWrap());
+    }
+
+    private void buildDevice(LinearLayout page) {
+        LinearLayout hardware = section(page, "设备信息");
+        device = infoRow(hardware, "设备型号");
+        androidVersion = infoRow(hardware, "Android 版本");
+        deviceBuild = infoRow(hardware, "构建版本");
+        LinearLayout runtime = section(page, "模块与框架");
+        frameworkVersion = infoRow(runtime, "运行框架");
+        deviceReport = infoRow(runtime, "系统设置回报");
+        diagnosticHook = infoRow(runtime, "Hook 状态");
+        LinearLayout diagnostics = section(page, "诊断");
+        settingRow(diagnostics, "原始诊断信息", "构建指纹、事件记录与框架详情", v -> showPage(RAW));
+    }
+
+    private void buildRaw(LinearLayout page) {
+        TextView caption = bodyText(page, false);
+        caption.setText("Pixel Clone Profile Helper · v" + appVersionName());
+        caption.setPadding(dp(16), dp(24), dp(16), dp(16));
+        deviceDetails = bodyText(page, true);
+        deviceDetails.setPadding(dp(16), 0, dp(16), dp(16));
+        deviceDetails.setTextIsSelectable(true);
+    }
+
+    private void showPage(int page) {
+        currentPage = page >= HOME && page <= RAW ? page : HOME;
+        pages.setDisplayedChild(currentPage);
+        toolbar.setTitle(currentPage == HOME ? getString(R.string.helper_title)
+                : currentPage == LOGS ? "运行日志" : currentPage == DEVICE ? "设备与诊断" : "原始诊断信息");
+        toolbar.setNavigationIcon(currentPage == HOME ? null : getDrawable(R.drawable.pcph_ic_back));
+        toolbar.setNavigationContentDescription(currentPage == HOME ? null : "返回");
+        pageBack.setEnabled(currentPage != HOME);
+        Menu menu = toolbar.getMenu();
+        menu.clear();
+        if (currentPage == HOME) {
+            menu.add(Menu.NONE, REFRESH, Menu.NONE, "刷新状态")
+                    .setIcon(R.drawable.pcph_ic_refresh).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+            menu.add(Menu.NONE, ABOUT, Menu.NONE, "应用信息");
+        } else if (currentPage == LOGS) {
+            menu.add(Menu.NONE, EXPORT, Menu.NONE, "导出日志");
+            menu.add(Menu.NONE, CLEAR, Menu.NONE, "清除日志");
+        } else {
+            menu.add(Menu.NONE, COPY, Menu.NONE, "复制诊断信息")
+                    .setIcon(R.drawable.pcph_ic_copy).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+            menu.add(Menu.NONE, EXPORT, Menu.NONE, "导出完整诊断");
+        }
+        if (toolbar.getOverflowIcon() != null) toolbar.getOverflowIcon().setTint(Color.WHITE);
+        toolbar.sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+    }
+
+    private void navigateUp() { showPage(currentPage == RAW ? DEVICE : HOME); }
+
+    private boolean onToolbarAction(MenuItem item) {
+        switch (item.getItemId()) {
+            case REFRESH: refresh(); showFeedback("状态已刷新", Snackbar.LENGTH_SHORT); return true;
+            case EXPORT: exportLogs(); return true;
+            case CLEAR: clearLogs(); return true;
+            case COPY: copyDiagnostics(); return true;
+            case ABOUT:
+                new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_CloneHelper_Dialog)
+                        .setTitle("应用信息")
+                        .setMessage("Pixel Clone Profile Helper\nv" + appVersionName())
+                        .setPositiveButton("关闭", null).show();
+                return true;
+            default: return false;
+        }
+    }
+
+    private void updateStatusDisclosure() {
+        if (statusDetails == null) return;
+        statusDetails.setVisibility(statusExpanded ? View.VISIBLE : View.GONE);
+        statusArrow.setRotation(statusExpanded ? 270f : 90f);
+        ViewCompat.setStateDescription((View) statusArrow.getParent(), statusExpanded ? "已展开" : "已收起");
     }
 
     private void configureEdgeToEdge() {
@@ -194,127 +271,109 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void applyWindowInsets(View rootView, LinearLayout page) {
-        ViewCompat.setOnApplyWindowInsetsListener(rootView, (view, windowInsets) -> {
-            Insets safeInsets = windowInsets.getInsets(
-                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-
-            LinearLayout.LayoutParams spacerParams = (LinearLayout.LayoutParams) statusBarSpacer.getLayoutParams();
-            if (spacerParams.height != safeInsets.top) {
-                spacerParams.height = safeInsets.top;
-                statusBarSpacer.setLayoutParams(spacerParams);
+    private void applyWindowInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
+            Insets safe = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout());
+            LinearLayout.LayoutParams spacer = (LinearLayout.LayoutParams) statusBarSpacer.getLayoutParams();
+            if (spacer.height != safe.top) {
+                spacer.height = safe.top;
+                statusBarSpacer.setLayoutParams(spacer);
             }
-
-            page.setPadding(
-                    safeInsets.left,
-                    dimension(R.dimen.pcph_page_top),
-                    safeInsets.right,
-                    dimension(R.dimen.pcph_page_bottom) + safeInsets.bottom);
-
-            WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), rootView);
-            if (controller != null) {
-                controller.setAppearanceLightStatusBars(false);
-                controller.setAppearanceLightNavigationBars(!isNightMode());
+            toolbar.setPadding(safe.left, 0, safe.right, 0);
+            for (LinearLayout page : pageContents) {
+                page.setPadding(safe.left, 0, safe.right, dp(24) + safe.bottom);
             }
+            WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), root);
+            controller.setAppearanceLightStatusBars(false);
+            int mode = getResources().getConfiguration().uiMode
+                    & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+            controller.setAppearanceLightNavigationBars(mode != android.content.res.Configuration.UI_MODE_NIGHT_YES);
             return windowInsets;
         });
-        ViewCompat.requestApplyInsets(rootView);
-    }
-
-    private boolean isNightMode() {
-        int mode = getResources().getConfiguration().uiMode
-                & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
-        return mode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        ViewCompat.requestApplyInsets(root);
     }
 
     private LinearLayout section(LinearLayout parent, String title) {
-        if (parent.getChildCount() > 0) {
-            View divider = new View(this);
-            divider.setBackgroundColor(getColor(R.color.pcph_divider));
-            LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dimension(R.dimen.pcph_divider_height));
-            lineParams.topMargin = dimension(R.dimen.pcph_section_bottom);
-            parent.addView(divider, lineParams);
-        }
+        if (parent.getChildCount() > 0) divider(parent);
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        int horizontal = dimension(R.dimen.pcph_page_horizontal);
-        box.setPadding(horizontal, dimension(R.dimen.pcph_section_top), horizontal, 0);
         parent.addView(box, matchWrap());
         TextView heading = new TextView(this);
         heading.setText(title);
         heading.setTextAppearance(R.style.TextAppearance_CloneHelper_SectionTitle);
-        heading.setAccessibilityHeading(true);
-        LinearLayout.LayoutParams headingParams = matchWrap();
-        headingParams.bottomMargin = dimension(R.dimen.pcph_section_spacing);
-        box.addView(heading, headingParams);
+        heading.setGravity(Gravity.BOTTOM);
+        heading.setMinHeight(dp(48));
+        heading.setPadding(dp(16), dp(20), dp(16), dp(12));
+        ViewCompat.setAccessibilityHeading(heading, true);
+        box.addView(heading, matchWrap());
         return box;
     }
 
-    private void navigationRow(LinearLayout parent, String label, View.OnClickListener listener) {
-        TextView row = new TextView(this);
-        row.setText(label);
-        row.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
-        row.setTextColor(getColor(R.color.pcph_accent));
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setMinimumHeight(dimension(R.dimen.pcph_switch_row_height));
-        row.setBackground(selectableItemBackground());
-        row.setClickable(true);
-        row.setFocusable(true);
-        row.setOnClickListener(listener);
-        ViewCompat.setAccessibilityDelegate(row, new androidx.core.view.AccessibilityDelegateCompat() {
-            @Override
-            public void onInitializeAccessibilityNodeInfo(View host,
-                    androidx.core.view.accessibility.AccessibilityNodeInfoCompat info) {
-                super.onInitializeAccessibilityNodeInfo(host, info);
-                info.setClassName(android.widget.Button.class.getName());
+    private void divider(LinearLayout parent) {
+        View line = new View(this);
+        line.setBackgroundColor(getColor(R.color.pcph_divider));
+        parent.addView(line, new LinearLayout.LayoutParams(-1, dimension(R.dimen.pcph_divider_height)));
+    }
+
+    private final class SettingRow extends LinearLayout {
+        final TextView title, summary;
+        final ImageView arrow;
+        SettingRow(String label, String detail, View.OnClickListener listener) {
+            super(MainActivity.this);
+            setOrientation(HORIZONTAL);
+            setGravity(Gravity.CENTER_VERTICAL);
+            setMinimumHeight(dp(72));
+            setPadding(dp(16), dp(12), dp(16), dp(12));
+            LinearLayout text = new LinearLayout(MainActivity.this);
+            text.setOrientation(VERTICAL);
+            title = new TextView(MainActivity.this);
+            title.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
+            title.setText(label);
+            text.addView(title, matchWrap());
+            summary = new TextView(MainActivity.this);
+            summary.setTextAppearance(R.style.TextAppearance_CloneHelper_Secondary);
+            summary.setText(detail);
+            LinearLayout.LayoutParams detailParams = matchWrap();
+            detailParams.topMargin = dp(3);
+            text.addView(summary, detailParams);
+            addView(text, new LinearLayout.LayoutParams(0, -2, 1f));
+            arrow = new ImageView(MainActivity.this);
+            arrow.setImageResource(R.drawable.pcph_ic_chevron);
+            arrow.setImageTintList(ColorStateList.valueOf(getColor(R.color.pcph_text_secondary)));
+            arrow.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams(dp(24), dp(24));
+            arrowParams.setMarginStart(dp(16));
+            addView(arrow, arrowParams);
+            if (listener != null) {
+                setBackground(selectableItemBackground());
+                setClickable(true);
+                setFocusable(true);
+                setOnClickListener(listener);
+            } else {
+                arrow.setVisibility(GONE);
             }
-        });
+        }
+    }
+
+    private SettingRow settingRow(LinearLayout parent, String title, String detail, View.OnClickListener listener) {
+        SettingRow row = new SettingRow(title, detail, listener);
         parent.addView(row, matchWrap());
+        return row;
     }
 
     private TextView infoRow(LinearLayout parent, String label) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setMinimumHeight(dimension(R.dimen.pcph_info_row_height));
-        row.setPadding(0, dimension(R.dimen.pcph_row_vertical_padding), 0,
-                dimension(R.dimen.pcph_row_vertical_padding));
-
-        TextView title = new TextView(this);
-        title.setText(label);
-        title.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
-        row.addView(title, matchWrap());
-
-        TextView value = new TextView(this);
-        value.setTextAppearance(R.style.TextAppearance_CloneHelper_Secondary);
-        value.setBreakStrategy(android.graphics.text.LineBreaker.BREAK_STRATEGY_HIGH_QUALITY);
-        LinearLayout.LayoutParams valueParams = matchWrap();
-        valueParams.topMargin = dimension(R.dimen.pcph_summary_spacing);
-        row.addView(value, valueParams);
-
-        parent.addView(row, matchWrap());
-        return value;
-    }
-
-    private void addSectionCaption(LinearLayout parent, String label) {
-        TextView caption = new TextView(this);
-        caption.setText(label);
-        caption.setTextAppearance(R.style.TextAppearance_CloneHelper_Caption);
-        LinearLayout.LayoutParams params = matchWrap();
-        params.topMargin = dimension(R.dimen.pcph_config_caption_top);
-        parent.addView(caption, params);
+        if (parent.getChildCount() > 0
+                && parent.getChildAt(parent.getChildCount() - 1) instanceof SettingRow) divider(parent);
+        return settingRow(parent, label, "", null).summary;
     }
 
     private TextView bodyText(LinearLayout parent, boolean diagnostic) {
         TextView text = new TextView(this);
-        text.setTextAppearance(diagnostic
-                ? R.style.TextAppearance_CloneHelper_Diagnostic
+        text.setTextAppearance(diagnostic ? R.style.TextAppearance_CloneHelper_Diagnostic
                 : R.style.TextAppearance_CloneHelper_Body);
         text.setBreakStrategy(android.graphics.text.LineBreaker.BREAK_STRATEGY_HIGH_QUALITY);
-        if (diagnostic) {
-            text.setLineSpacing(dimension(R.dimen.pcph_log_line_spacing), 1f);
-        }
+        if (diagnostic) text.setLineSpacing(dp(2), 1f);
         parent.addView(text, matchWrap());
         return text;
     }
@@ -323,23 +382,20 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setMinimumHeight(dimension(R.dimen.pcph_switch_row_height));
+        row.setMinimumHeight(dp(56));
+        row.setPadding(dp(16), dp(4), dp(16), dp(4));
         row.setBackground(selectableItemBackground());
-
         TextView title = new TextView(this);
         title.setText(label);
         title.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
-        row.addView(title, new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
+        row.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
         SwitchMaterial control = new SwitchMaterial(this);
         control.setContentDescription(label);
         control.setThumbTintList(switchThumbColors());
         control.setTrackTintList(switchTrackColors());
-        LinearLayout.LayoutParams switchParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        switchParams.setMarginStart(dimension(R.dimen.pcph_switch_label_spacing));
-        row.addView(control, switchParams);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+        params.setMarginStart(dp(12));
+        row.addView(control, params);
         row.setClickable(true);
         row.setFocusable(true);
         row.setOnClickListener(v -> control.toggle());
@@ -348,91 +404,124 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private ColorStateList switchThumbColors() {
-        int[][] states = new int[][]{
-                new int[]{-android.R.attr.state_enabled},
-                new int[]{android.R.attr.state_checked},
-                new int[]{}
-        };
-        int[] colors = new int[]{
-                getColor(R.color.pcph_switch_disabled_thumb),
-                getColor(R.color.pcph_accent),
-                getColor(R.color.pcph_switch_off_thumb)
-        };
-        return new ColorStateList(states, colors);
+        return new ColorStateList(new int[][]{{-android.R.attr.state_enabled}, {android.R.attr.state_checked}, {}},
+                new int[]{getColor(R.color.pcph_switch_disabled_thumb), getColor(R.color.pcph_accent),
+                        getColor(R.color.pcph_switch_off_thumb)});
     }
 
     private ColorStateList switchTrackColors() {
-        int[][] states = new int[][]{
-                new int[]{-android.R.attr.state_enabled},
-                new int[]{android.R.attr.state_checked},
-                new int[]{}
-        };
-        int[] colors = new int[]{
-                getColor(R.color.pcph_switch_disabled_track),
-                getColor(R.color.pcph_switch_on_track),
-                getColor(R.color.pcph_switch_off_track)
-        };
-        return new ColorStateList(states, colors);
+        return new ColorStateList(new int[][]{{-android.R.attr.state_enabled}, {android.R.attr.state_checked}, {}},
+                new int[]{getColor(R.color.pcph_switch_disabled_track), getColor(R.color.pcph_switch_on_track),
+                        getColor(R.color.pcph_switch_off_track)});
     }
 
     private android.graphics.drawable.Drawable selectableItemBackground() {
         TypedValue value = new TypedValue();
-        if (getTheme().resolveAttribute(android.R.attr.selectableItemBackground, value, true)) {
-            return getDrawable(value.resourceId);
+        return getTheme().resolveAttribute(android.R.attr.selectableItemBackground, value, true)
+                ? getDrawable(value.resourceId) : null;
+    }
+
+    private void refresh() {
+        if (framework == null) return;
+        installed.setText("已安装 · v" + appVersionName());
+        framework.setText(HelperApplication.service == null ? "等待连接" : "已连接");
+        scope.setText(HelperApplication.service == null ? "尚未确认" : HelperApplication.scoped ? "已启用" : "未启用");
+        List<String> rows = logs();
+        hook.setText(hookSummary(rows));
+        boolean delivered = HelperApplication.service != null && HelperApplication.sync();
+        config.setText(delivered ? "已保存，等待系统设置生效" : "已保存，等待系统连接");
+        entry.setChecked(AppConfig.prefs().getBoolean(HelperApplication.ENTRY, true));
+        third.setChecked(AppConfig.prefs().getBoolean(HelperApplication.THIRD, true));
+
+        String lastReport = rows.isEmpty() ? "尚未收到回报" : logFields(rows.get(rows.size() - 1))[0];
+        // Reports are historical evidence; they do not prove a live connection or configuration parity.
+        connectionSummary.setText(rows.isEmpty() ? "尚未收到系统设置进程回报"
+                : "最近回报：" + lastReport + "\n" + hookSummary(rows));
+        String latest = rows.isEmpty() ? null : rows.get(rows.size() - 1);
+        logsSummary.setText(latest == null ? "暂无运行日志" : "最近事件：" + eventSummary(latest));
+        deviceSummary.setText(Build.MODEL + " · Android " + Build.VERSION.RELEASE);
+        device.setText(Build.MANUFACTURER + " " + Build.MODEL);
+        androidVersion.setText(Build.VERSION.RELEASE + " · SDK " + Build.VERSION.SDK_INT);
+        deviceBuild.setText(Build.DISPLAY);
+        frameworkVersion.setText(HelperApplication.framework == null || HelperApplication.framework.isEmpty()
+                ? "尚未确认" : HelperApplication.framework);
+        deviceReport.setText(rows.isEmpty() ? lastReport : "最近回报：" + lastReport);
+        diagnosticHook.setText(hookDiagnosticStatus(rows));
+        deviceDetails.setText("Build fingerprint\n" + Build.FINGERPRINT
+                + "\n\nBuild ID\n" + Build.ID
+                + "\n\n最近回报时间\n" + lastReport
+                + "\n\n运行框架\n" + HelperApplication.framework
+                + "\n\n系统设置作用范围\n" + (HelperApplication.scoped ? "com.android.settings：已启用"
+                    : HelperApplication.service == null ? "尚未确认" : "com.android.settings：未启用")
+                + "\n\nHook 状态\n" + hookDiagnosticStatus(rows)
+                + "\n\n原始事件记录\n" + (rows.isEmpty() ? "暂无运行日志" : formatRawLogs(rows)));
+        renderLogs(rows);
+    }
+
+    private String eventSummary(String row) {
+        String[] fields = logFields(row);
+        return fields.length >= 3 ? logSummary(fields[2]) : "诊断记录";
+    }
+
+    private void renderLogs(List<String> rows) {
+        if (rows.equals(renderedLogs)) return;
+        renderedLogs = new ArrayList<>(rows);
+        logEntries.removeAllViews();
+        if (rows.isEmpty()) {
+            TextView empty = bodyText(logEntries, false);
+            empty.setText("暂无运行日志");
+            empty.setPadding(dp(16), dp(24), dp(16), dp(24));
+            return;
         }
-        return null;
-    }
-
-    private interface ButtonFactory {
-        void create(LinearLayout parent);
-    }
-
-    private void addActionRow(LinearLayout parent, ButtonFactory factory) {
-        LinearLayout row = new LinearLayout(this);
-        row.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams params = matchWrap();
-        params.topMargin = dimension(R.dimen.pcph_action_spacing);
-        parent.addView(row, params);
-        factory.create(row);
-    }
-
-    private void flatButton(LinearLayout parent, String label, View.OnClickListener listener) {
-        MaterialButton button = new MaterialButton(this);
-        button.setText(label);
-        button.setAllCaps(false);
-        button.setTextAppearance(R.style.TextAppearance_CloneHelper_Button);
-        button.setTextColor(flatButtonTextColors());
-        button.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
-        button.setRippleColor(ColorStateList.valueOf(getColor(R.color.pcph_ripple)));
-        button.setCornerRadius(dimension(R.dimen.pcph_button_radius));
-        button.setInsetTop(0);
-        button.setInsetBottom(0);
-        button.setMinHeight(dimension(R.dimen.pcph_touch_target));
-        button.setMinimumHeight(dimension(R.dimen.pcph_touch_target));
-        button.setMinWidth(0);
-        button.setPadding(dimension(R.dimen.pcph_button_horizontal_padding), 0,
-                dimension(R.dimen.pcph_button_horizontal_padding), 0);
-        button.setElevation(0f);
-        button.setStateListAnimator(null);
-        button.setOnClickListener(listener);
-        LinearLayout.LayoutParams buttonParams = wrapWrap();
-        if (parent.getChildCount() > 0) {
-            buttonParams.setMarginStart(dimension(R.dimen.pcph_section_spacing));
+        String lastDate = "";
+        for (int i = rows.size() - 1; i >= 0; i--) {
+            String raw = rows.get(i);
+            String timestamp = logFields(raw)[0];
+            String date = timestamp.length() >= 10 ? timestamp.substring(0, 10) : "时间未知";
+            if (!date.equals(lastDate)) {
+                TextView heading = bodyText(logEntries, false);
+                heading.setTextAppearance(R.style.TextAppearance_CloneHelper_Caption);
+                heading.setText(date);
+                heading.setPadding(dp(16), dp(24), dp(16), dp(8));
+                ViewCompat.setAccessibilityHeading(heading, true);
+                lastDate = date;
+            }
+            LinearLayout line = new LinearLayout(this);
+            line.setOrientation(LinearLayout.HORIZONTAL);
+            line.setGravity(Gravity.TOP);
+            line.setMinimumHeight(dp(56));
+            line.setPadding(dp(16), dp(16), dp(16), dp(16));
+            TextView time = new TextView(this);
+            time.setTextAppearance(R.style.TextAppearance_CloneHelper_Time);
+            time.setText(shortTime(timestamp));
+            int timeWidth = Math.max(dp(64), (int) Math.ceil(time.getPaint().measureText("00:00")) + dp(16));
+            line.addView(time, new LinearLayout.LayoutParams(timeWidth, -2));
+            TextView message = new TextView(this);
+            message.setTextAppearance(R.style.TextAppearance_CloneHelper_Primary);
+            message.setText(eventSummary(raw));
+            line.addView(message, new LinearLayout.LayoutParams(0, -2, 1f));
+            line.setBackground(selectableItemBackground());
+            line.setClickable(true);
+            line.setFocusable(true);
+            line.setOnClickListener(v -> showLogDetail(raw));
+            logEntries.addView(line, matchWrap());
+            divider(logEntries);
         }
-        parent.addView(button, buttonParams);
     }
 
-    private ColorStateList flatButtonTextColors() {
-        int[][] states = new int[][]{
-                new int[]{-android.R.attr.state_enabled},
-                new int[]{}
-        };
-        int[] colors = new int[]{
-                getColor(R.color.pcph_text_disabled),
-                getColor(R.color.pcph_accent)
-        };
-        return new ColorStateList(states, colors);
+    private void showLogDetail(String row) {
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_CloneHelper_Dialog)
+                .setTitle(eventSummary(row)).setMessage(formatRawLogs(Collections.singletonList(row)))
+                .setPositiveButton("关闭", null).show();
+        TextView message = dialog.findViewById(android.R.id.message);
+        if (message != null) {
+            message.setTextAppearance(R.style.TextAppearance_CloneHelper_Diagnostic);
+            message.setTextIsSelectable(true);
+        }
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private String appVersionName() {
@@ -445,70 +534,15 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void refresh() {
-        if (framework == null) return;
-
-        installed.setText("已安装 · v" + appVersionName());
-        framework.setText(HelperApplication.service == null ? "等待连接" : "已连接");
-        scope.setText(HelperApplication.service == null
-                ? "尚未确认"
-                : HelperApplication.scoped ? "已启用" : "未启用");
-
-        List<String> rows = logs();
-        if (rows.isEmpty()) expanded = false;
-        String hookDiagnostic = hookDiagnosticStatus(rows);
-        hook.setText(hookSummary(rows));
-
-        boolean delivered = HelperApplication.service != null && HelperApplication.sync();
-        config.setText(delivered
-                ? "配置已保存，等待系统设置生效"
-                : "配置已保存，等待系统连接");
-
-        if (entry != null) {
-            entry.setChecked(AppConfig.prefs().getBoolean(HelperApplication.ENTRY, true));
-            third.setChecked(AppConfig.prefs().getBoolean(HelperApplication.THIRD, true));
-        }
-
-        if (expanded) {
-            logText.setText(formatRawLogs(rows));
-            logText.setTextAppearance(R.style.TextAppearance_CloneHelper_Diagnostic);
-            logText.setTextIsSelectable(true);
-        } else {
-            logText.setText(recentLogSummaries(rows));
-            logText.setTextAppearance(R.style.TextAppearance_CloneHelper_Body);
-            logText.setTextIsSelectable(false);
-        }
-        expandLogsButton.setText(expanded ? "收起" : "展开更多");
-        expandLogsButton.setEnabled(!rows.isEmpty());
-
-        String lastReport = rows.isEmpty()
-                ? "尚无回报"
-                : rows.get(rows.size() - 1).split(" \\| ", 2)[0];
-        device.setText("Android " + Build.VERSION.RELEASE + " · SDK " + Build.VERSION.SDK_INT
-                + "\n" + Build.MANUFACTURER + " " + Build.MODEL);
-        deviceBuild.setText(Build.DISPLAY);
-        deviceReport.setText(rows.isEmpty() ? "尚无回报" : shortTime(lastReport));
-        deviceDetails.setText("Build fingerprint\n" + Build.FINGERPRINT
-                + "\n\nBuild ID\n" + Build.ID
-                + "\n\n最近 Settings 回报\n" + lastReport
-                + "\n\n运行框架\n" + HelperApplication.framework
-                + "\n\nSettings 作用域\n" + (HelperApplication.scoped
-                    ? "com.android.settings：已启用"
-                    : HelperApplication.service == null
-                        ? "尚未确认"
-                        : "com.android.settings：未启用")
-                + "\n\nHook 状态\n" + hookDiagnostic);
-    }
-
     private String hookDiagnosticStatus(List<String> rows) {
-        String status = "尚未收到 Settings 进程回报";
+        String status = "尚未收到 系统设置进程回报";
         for (String row : rows) {
             String[] fields = logFields(row);
             if (fields.length < 3) continue;
             String event = fields[2];
             String detail = fields.length > 3 ? fields[3] : "";
             if ("SETTINGS_PROCESS_LOADED".equals(event)) {
-                status = "Settings 进程已加载本模块，等待 Hook 匹配结果";
+                status = "系统设置进程已加载本模块，等待 Hook 匹配结果";
             } else if ("HOOK_MATCHED".equals(event)) {
                 status = "已匹配：" + detail;
             } else if ("HOOK_INSTALL_RESULT".equals(event)) {
@@ -544,32 +578,12 @@ public final class MainActivity extends AppCompatActivity {
         return summary;
     }
 
-    private String recentLogSummaries(List<String> rows) {
-        List<String> summaries = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
-        for (int i = rows.size() - 1; i >= 0 && summaries.size() < 3; i--) {
-            String[] fields = logFields(rows.get(i));
-            if (fields.length < 3) continue;
-            String summary = logSummary(fields[2]);
-            if (summary == null || !seen.add(summary)) continue;
-            summaries.add(shortTime(fields[0]) + "   " + summary);
-        }
-        Collections.reverse(summaries);
-        if (summaries.isEmpty()) return "暂无诊断记录";
-        StringBuilder output = new StringBuilder();
-        for (String line : summaries) {
-            if (output.length() > 0) output.append('\n');
-            output.append(line);
-        }
-        return output.toString();
-    }
-
     private String logSummary(String event) {
         switch (event) {
             case "REPORT_CHANNEL_CONNECTED":
-                return "系统设置已连接";
+                return "系统设置回报通道已连接";
             case "REPORT_CHANNEL_REJECTED":
-                return "系统设置连接失败";
+                return "系统设置回报通道连接失败";
             case "SETTINGS_PROCESS_LOADED":
                 return "系统设置已启动";
             case "HOOK_MATCHED":
@@ -622,8 +636,8 @@ public final class MainActivity extends AppCompatActivity {
         AppConfig.prefs().edit().putBoolean(key, value).apply();
         boolean sent = HelperApplication.sync();
         config.setText(sent
-                ? "配置已保存，等待系统设置生效"
-                : "配置已保存，等待系统连接");
+                ? "已保存，等待系统设置生效"
+                : "已保存，等待系统连接");
         showFeedback("配置已保存", Snackbar.LENGTH_LONG);
     }
 
@@ -648,15 +662,18 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void exportLogs() {
+        final boolean logsOnly = currentPage == LOGS;
         new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_CloneHelper_Dialog)
-                .setTitle("导出本地诊断")
+                .setTitle(logsOnly ? "导出运行日志" : "导出完整诊断")
                 .setMessage("分享前请检查内容。日志只包含时间、Hook 事件与设备构建信息，不包含应用列表或账户数据。")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("继续", (dialog, which) -> {
                     Intent intent = new Intent(Intent.ACTION_SEND);
                     intent.setType("text/plain");
-                    intent.putExtra(Intent.EXTRA_TEXT, diagnostics());
-                    startActivity(Intent.createChooser(intent, "分享诊断"));
+                    intent.putExtra(Intent.EXTRA_TEXT, logsOnly
+                            ? "Pixel Clone Profile Helper v" + appVersionName() + "\n原始运行日志\n" + formatRawLogs(logs())
+                            : diagnostics());
+                    startActivity(Intent.createChooser(intent, logsOnly ? "分享运行日志" : "分享诊断"));
                 })
                 .show();
     }
@@ -682,13 +699,12 @@ public final class MainActivity extends AppCompatActivity {
 
     private String diagnostics() {
         return "Pixel Clone Profile Helper v" + appVersionName() + "\n"
-                + device.getText() + "\n构建："
+                + device.getText() + "\nAndroid 版本：" + androidVersion.getText() + "\n构建版本："
                 + deviceBuild.getText() + "\n" + deviceDetails.getText()
                 + "\n运行框架：" + HelperApplication.framework
-                + "\nSettings 作用域：" + scope.getText()
+                + "\n系统设置作用范围：" + scope.getText()
                 + "\n克隆功能状态：" + hook.getText()
-                + "\n配置状态：" + config.getText()
-                + "\n原始运行日志\n" + formatRawLogs(logs());
+                + "\n配置状态：" + config.getText();
     }
 
     private void showFeedback(String message, int duration) {
@@ -707,11 +723,6 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout.LayoutParams matchWrap() {
         return new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-    }
-
-    private LinearLayout.LayoutParams wrapWrap() {
-        return new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
     private int dimension(int resource) {

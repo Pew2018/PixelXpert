@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="pcph_toolbar_height">56dp</dimen>
-    <dimen name="pcph_toolbar_elevation">4dp</dimen>
+    <dimen name="pcph_toolbar_elevation">2dp</dimen>
     <dimen name="pcph_page_horizontal">16dp</dimen>
     <dimen name="pcph_page_top">0dp</dimen>
     <dimen name="pcph_page_bottom">24dp</dimen>
